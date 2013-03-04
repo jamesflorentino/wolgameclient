@@ -1,4 +1,4 @@
-var HexTiles = require('./tiles/hextiles');
+var HexTiles = require('../tiles/hextiles');
 
 var GameEntity = require('./game-entity');
 var Game = function() {

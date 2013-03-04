@@ -1,6 +1,6 @@
 var HexUtil = {
-    WIDTH: 84,
-    HEIGHT: 56,
+    WIDTH: 81,
+    HEIGHT: 60,
     position: function(hex, tile, center) {
         var coord = this.coord(tile, center);
         hex.regX = this.WIDTH * 0.5;

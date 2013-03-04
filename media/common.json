@@ -1,0 +1,21 @@
+{
+"images": ["common.png"],
+"frames": [
+
+    [251, 2, 81, 60], 
+    [168, 2, 81, 60], 
+    [85, 2, 81, 60], 
+    [2, 2, 81, 60]
+],
+"animations": {
+    
+        "hex_bg":[0], 
+        "hex_move":[1], 
+        "hex_move_select":[2], 
+        "hex_target":[3]
+},
+"texturepacker": [
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:a5d842a7de1c90112e7bf2f2c79186aa$",
+        "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
+]
+}

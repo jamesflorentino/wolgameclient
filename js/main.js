@@ -2,7 +2,6 @@
  * @author James Florentino
  * This file will contain the graphics part
  */
-
 var BitmapAnimation = createjs.BitmapAnimation,
 SpriteSheet = createjs.SpriteSheet,
 Ticker = createjs.Ticker,
@@ -10,35 +9,41 @@ Container = createjs.Container,
 Bitmap = createjs.Bitmap
 ;
 
-/** Configurable params **/
-var backgroundURI = '/media/backgrounds/teal.png';
-var terrainURI = '/media/terrains/gravel.png';
-var terrainX = 0;
-var terrainY = 70;
-
 /** SpriteSheet frame data  **/
 var frames = {
     'marine': require('./sheets/marine'),
-    'vanguard': require('./sheets/vanguard')
+    'vanguard': require('./sheets/vanguard'),
+    'common': require('./sheets/common')
+},
+hexutil = require('./client/hexutil'),
+wol = require('./wol/wol'),
+settings = {
+    backgroundURI: '/media/backgrounds/teal.png',
+    terrainURI: '/media/terrains/gravel.png',
+    terrainX: 0,
+    terrainY: 70,
+    rows: 8,
+    columns: 8
 };
-
-var wol = require('./wol/wol');
-
-
-
-/** Assets to be preloaded **/
+/** main layers **/
+var containers = {
+    terrain: null,
+    units: null
+};
 var assetManifest = [
-    '/media/marine.png',
-    '/media/vanguard.png',
-    terrainURI,
-    backgroundURI
+    frames.marine.images[0],
+    frames.vanguard.images[0],
+    frames.common.images[0],
+    settings.terrainURI,
+    settings.backgroundURI
 ];
 
-/** main layers **/
-var terrainContainer, unitContainer, background;
+
+
+var game;
 
 /** To be defined later **/
-var stage, queue;
+var stage, queue, background;
 
 /**
  * @return createjs.BitmapAnimation
@@ -70,33 +75,69 @@ function getImage(url) {
     return queue.getResult(url);
 }
 
-function start() {
-    var game = wol.createGame();
-    var entity = game.createEntity();
-    console.log(entity.stats.toJSON());
-    /**
-    background = new Bitmap(getImage(backgroundURI));
-    terrainContainer = new createjs.Container();
-    unitContainer = new createjs.Container();
-    stage.addChild(background, terrainContainer);
 
-    terrain = new Bitmap(getImage(terrainURI));
-    terrainContainer.x = terrainX;
-    terrainContainer.y = terrainY;
-    terrainContainer.addChild(terrain, unitContainer);
+function setTerrain(fn) {
+    background = new Bitmap(getImage(settings.backgroundURI));
+    containers.terrain = new createjs.Container();
+    containers.units = new createjs.Container();
+    stage.addChild(background, containers.terrain);
 
+    terrain = new Bitmap(getImage(settings.terrainURI));
+    containers.terrain.x = settings.terrainX;
+    containers.terrain.y = settings.terrainY;
+    containers.terrain.addChild(terrain, containers.units);
+    console.log('asd');
+    fn();
+}
+
+function setTilemaps(fn) {
+    var tiles = game.tiles;
+    var tileMapBackground = new Container();
+    tiles.each(function(tile) {
+        var tileMap = new BitmapAnimation(new SpriteSheet(frames.common));
+        tileMap.gotoAndPlay('hex_bg');
+        hexutil.position(tileMap, tile);
+        tileMapBackground.addChild(tileMap);
+    });
+    tileMapBackground.cache(
+        0, 
+        0, 
+        hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5), 
+        hexutil.HEIGHT * settings.rows
+    );
+    containers.terrain.addChild(tileMapBackground);
+
+
+    var tileCoord = hexutil.coord(tiles.get(0,0), true);
     var marine = createSprite('marine');
-    marine.x = 100;
-    marine.y=  100;
-    marine.gotoAndPlay(1);
-    unitContainer.addChild(marine);
+    marine.x = tileCoord.x;
+    marine.y =  tileCoord.y;
+    marine.gotoAndPlay('idle');
+    containers.units.addChild(marine);
+    fn();
+}
 
-    var vanguard = createSprite('vanguard');
-    vanguard.x = 300;
-    vanguard.y=  300;
-    vanguard.gotoAndPlay(1);
-    unitContainer.addChild(vanguard);
-    /****/
+function setGame(fn) {
+    game = wol.createGame({ columns: settings.columns, rows: settings.rows });
+    fn();
+}
+
+function start() {
+
+    setGame(function(err) {
+        setTerrain(function(err) {
+            setTilemaps(function(err) {});
+        });
+    });
+
+
+    //var vanguard = createSprite('vanguard');
+    //vanguard.x = 300;
+    //vanguard.y=  300;
+    //vanguard.gotoAndPlay(1);
+    //containers.units.addChild(vanguard);
+
+    resume();
 }
 
 function preload() {
@@ -118,7 +159,7 @@ function ready() {
     Ticker.addListener(tick);
     Ticker.setFPS(30);
     preload();
-    pause();
+    //pause();
 }
 
 window.addEventListener('load', ready);

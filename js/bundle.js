@@ -2,7 +2,6 @@
  * @author James Florentino
  * This file will contain the graphics part
  */
-
 var BitmapAnimation = createjs.BitmapAnimation,
 SpriteSheet = createjs.SpriteSheet,
 Ticker = createjs.Ticker,
@@ -10,35 +9,41 @@ Container = createjs.Container,
 Bitmap = createjs.Bitmap
 ;
 
-/** Configurable params **/
-var backgroundURI = '/media/backgrounds/teal.png';
-var terrainURI = '/media/terrains/gravel.png';
-var terrainX = 0;
-var terrainY = 70;
-
 /** SpriteSheet frame data  **/
 var frames = {
     'marine': require('./sheets/marine'),
-    'vanguard': require('./sheets/vanguard')
+    'vanguard': require('./sheets/vanguard'),
+    'common': require('./sheets/common')
+},
+hexutil = require('./client/hexutil'),
+wol = require('./wol/wol'),
+settings = {
+    backgroundURI: '/media/backgrounds/teal.png',
+    terrainURI: '/media/terrains/gravel.png',
+    terrainX: 0,
+    terrainY: 70,
+    rows: 8,
+    columns: 8
 };
-
-var wol = require('./wol/wol');
-
-
-
-/** Assets to be preloaded **/
+/** main layers **/
+var containers = {
+    terrain: null,
+    units: null
+};
 var assetManifest = [
-    '/media/marine.png',
-    '/media/vanguard.png',
-    terrainURI,
-    backgroundURI
+    frames.marine.images[0],
+    frames.vanguard.images[0],
+    frames.common.images[0],
+    settings.terrainURI,
+    settings.backgroundURI
 ];
 
-/** main layers **/
-var terrainContainer, unitContainer, background;
+
+
+var game;
 
 /** To be defined later **/
-var stage, queue;
+var stage, queue, background;
 
 /**
  * @return createjs.BitmapAnimation
@@ -70,33 +75,69 @@ function getImage(url) {
     return queue.getResult(url);
 }
 
-function start() {
-    var game = wol.createGame();
-    var entity = game.createEntity();
-    console.log(entity.stats.toJSON());
-    /**
-    background = new Bitmap(getImage(backgroundURI));
-    terrainContainer = new createjs.Container();
-    unitContainer = new createjs.Container();
-    stage.addChild(background, terrainContainer);
 
-    terrain = new Bitmap(getImage(terrainURI));
-    terrainContainer.x = terrainX;
-    terrainContainer.y = terrainY;
-    terrainContainer.addChild(terrain, unitContainer);
+function setTerrain(fn) {
+    background = new Bitmap(getImage(settings.backgroundURI));
+    containers.terrain = new createjs.Container();
+    containers.units = new createjs.Container();
+    stage.addChild(background, containers.terrain);
 
+    terrain = new Bitmap(getImage(settings.terrainURI));
+    containers.terrain.x = settings.terrainX;
+    containers.terrain.y = settings.terrainY;
+    containers.terrain.addChild(terrain, containers.units);
+    console.log('asd');
+    fn();
+}
+
+function setTilemaps(fn) {
+    var tiles = game.tiles;
+    var tileMapBackground = new Container();
+    tiles.each(function(tile) {
+        var tileMap = new BitmapAnimation(new SpriteSheet(frames.common));
+        tileMap.gotoAndPlay('hex_bg');
+        hexutil.position(tileMap, tile);
+        tileMapBackground.addChild(tileMap);
+    });
+    tileMapBackground.cache(
+        0, 
+        0, 
+        hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5), 
+        hexutil.HEIGHT * settings.rows
+    );
+    containers.terrain.addChild(tileMapBackground);
+
+
+    var tileCoord = hexutil.coord(tiles.get(0,0), true);
     var marine = createSprite('marine');
-    marine.x = 100;
-    marine.y=  100;
-    marine.gotoAndPlay(1);
-    unitContainer.addChild(marine);
+    marine.x = tileCoord.x;
+    marine.y =  tileCoord.y;
+    marine.gotoAndPlay('idle');
+    containers.units.addChild(marine);
+    fn();
+}
 
-    var vanguard = createSprite('vanguard');
-    vanguard.x = 300;
-    vanguard.y=  300;
-    vanguard.gotoAndPlay(1);
-    unitContainer.addChild(vanguard);
-    /****/
+function setGame(fn) {
+    game = wol.createGame({ columns: settings.columns, rows: settings.rows });
+    fn();
+}
+
+function start() {
+
+    setGame(function(err) {
+        setTerrain(function(err) {
+            setTilemaps(function(err) {});
+        });
+    });
+
+
+    //var vanguard = createSprite('vanguard');
+    //vanguard.x = 300;
+    //vanguard.y=  300;
+    //vanguard.gotoAndPlay(1);
+    //containers.units.addChild(vanguard);
+
+    resume();
 }
 
 function preload() {
@@ -118,142 +159,12 @@ function ready() {
     Ticker.addListener(tick);
     Ticker.setFPS(30);
     preload();
-    pause();
+    //pause();
 }
 
 window.addEventListener('load', ready);
 
-},{"./sheets/marine":2,"./sheets/vanguard":3,"./wol/wol":4}],2:[function(require,module,exports){module.exports = {
-    "frames": [
-        [1528, 0, 52, 78, 0, 18, 68],
-        [1015, 0, 52, 78, 0, 18, 68],
-        [963, 0, 52, 78, 0, 18, 68],
-        [911, 0, 52, 78, 0, 18, 68],
-        [859, 0, 52, 78, 0, 18, 68],
-        [310, 86, 52, 77, 0, 18, 67],
-        [258, 86, 52, 77, 0, 18, 67],
-        [206, 86, 52, 77, 0, 18, 67],
-        [155, 86, 51, 77, 0, 18, 67],
-        [104, 86, 51, 77, 0, 18, 67],
-        [1992, 0, 52, 77, 0, 18, 67],
-        [1940, 0, 52, 77, 0, 18, 67],
-        [52, 86, 52, 77, 0, 18, 67],
-        [1888, 0, 52, 77, 0, 18, 67],
-        [1733, 0, 52, 77, 0, 18, 67],
-        [1836, 0, 52, 77, 0, 18, 67],
-        [1220, 0, 52, 78, 0, 18, 68],
-        [1272, 0, 52, 78, 0, 18, 68],
-        [1324, 0, 52, 78, 0, 18, 68],
-        [1376, 0, 51, 78, 0, 18, 68],
-        [482, 163, 52, 71, 0, 16, 62],
-        [914, 163, 55, 68, 0, 17, 59],
-        [1023, 163, 57, 66, 0, 19, 58],
-        [969, 163, 54, 67, 0, 17, 58],
-        [744, 163, 52, 69, 0, 15, 59],
-        [378, 163, 52, 71, 0, 15, 60],
-        [430, 163, 52, 71, 0, 15, 59],
-        [271, 163, 53, 72, 0, 15, 58],
-        [1955, 86, 55, 73, 0, 18, 58],
-        [534, 163, 53, 71, 0, 16, 58],
-        [692, 163, 52, 69, 0, 15, 58],
-        [587, 163, 52, 70, 0, 15, 59],
-        [796, 163, 52, 68, 0, 15, 58],
-        [1080, 163, 53, 66, 0, 15, 58],
-        [639, 163, 53, 70, 0, 16, 61],
-        [1733, 86, 52, 73, 0, 17, 64],
-        [1785, 0, 51, 77, 0, 18, 67],
-        [1631, 0, 50, 77, 0, 17, 67],
-        [1427, 0, 50, 78, 0, 17, 68],
-        [1067, 0, 50, 78, 0, 17, 68],
-        [572, 86, 53, 75, 0, 18, 64],
-        [1007, 86, 56, 74, 0, 19, 61],
-        [1677, 86, 56, 73, 0, 19, 60],
-        [1898, 86, 57, 73, 0, 19, 59],
-        [1841, 86, 57, 73, 0, 19, 59],
-        [1785, 86, 56, 73, 0, 19, 59],
-        [633, 0, 102, 86, 0, 19, 72],
-        [531, 0, 102, 86, 0, 19, 72],
-        [102, 0, 102, 86, 0, 19, 72],
-        [735, 0, 124, 86, 0, 19, 72],
-        [321, 0, 102, 86, 0, 19, 72],
-        [0, 0, 102, 86, 0, 19, 72],
-        [423, 0, 108, 86, 0, 19, 72],
-        [204, 0, 117, 86, 0, 19, 72],
-        [1284, 86, 56, 73, 0, 19, 59],
-        [1620, 86, 57, 73, 0, 19, 59],
-        [1340, 86, 57, 73, 0, 19, 59],
-        [1226, 86, 58, 73, 0, 19, 59],
-        [1507, 86, 58, 73, 0, 19, 60],
-        [895, 86, 57, 75, 0, 19, 62],
-        [786, 86, 56, 75, 0, 19, 63],
-        [842, 86, 53, 75, 0, 18, 64],
-        [467, 86, 52, 76, 0, 18, 65],
-        [362, 86, 52, 77, 0, 18, 66],
-        [1168, 0, 52, 78, 0, 18, 67],
-        [1117, 0, 51, 78, 0, 18, 68],
-        [1580, 0, 51, 78, 0, 18, 68],
-        [1477, 0, 51, 78, 0, 18, 68],
-        [414, 86, 53, 77, 0, 18, 65],
-        [625, 86, 54, 75, 0, 18, 62],
-        [1117, 86, 55, 74, 0, 18, 60],
-        [952, 86, 55, 74, 0, 18, 59],
-        [1397, 86, 55, 73, 0, 18, 58],
-        [1452, 86, 55, 73, 0, 18, 58],
-        [217, 163, 54, 72, 0, 19, 57],
-        [0, 163, 53, 72, 0, 18, 57],
-        [53, 163, 54, 72, 0, 18, 57],
-        [324, 163, 54, 72, 0, 18, 57],
-        [162, 163, 55, 72, 0, 18, 57],
-        [1565, 86, 55, 73, 0, 18, 59],
-        [1172, 86, 54, 74, 0, 18, 60],
-        [1063, 86, 54, 74, 0, 18, 61],
-        [679, 86, 54, 75, 0, 18, 62],
-        [733, 86, 53, 75, 0, 18, 63],
-        [519, 86, 53, 76, 0, 18, 65],
-        [1681, 0, 52, 77, 0, 18, 66],
-        [0, 86, 52, 77, 0, 18, 67],
-        [107, 163, 55, 72, 0, 23, 57],
-        [1133, 163, 59, 65, 0, 28, 50],
-        [1388, 163, 61, 62, 0, 30, 48],
-        [1324, 163, 64, 62, 0, 30, 48],
-        [1258, 163, 66, 62, 0, 30, 48],
-        [848, 163, 66, 68, 0, 30, 48],
-        [1192, 163, 66, 65, 0, 30, 48],
-        [1515, 163, 66, 62, 0, 30, 48],
-        [1449, 163, 66, 62, 0, 30, 47],
-        [1581, 163, 65, 60, 0, 29, 45],
-        [1646, 163, 65, 58, 0, 29, 42],
-        [1711, 163, 64, 50, 0, 28, 32],
-        [1775, 163, 69, 43, 0, 27, 23],
-        [1844, 163, 79, 34, 0, 26, 14],
-        [79, 235, 79, 33, 0, 26, 13],
-        [1923, 163, 79, 33, 0, 26, 13],
-        [0, 235, 79, 33, 0, 26, 13],
-        [237, 235, 79, 33, 0, 26, 13],
-        [158, 235, 79, 33, 0, 26, 13],
-        [395, 235, 79, 32, 0, 26, 12],
-        [316, 235, 79, 32, 0, 26, 12],
-        [474, 235, 79, 32, 0, 26, 12],
-        [553, 235, 79, 31, 0, 26, 11]
-    ],
-    "animations": {
-        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
-        "all": {"frames": [0]},
-        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
-        "die_end": {"frames": [109]},
-        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
-        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
-        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
-        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
-        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
-        "move_start": {"frames": [0, 20, 21]},
-        "hit": {"frames": [74, 75, 76, 77, 78]},
-        "defend_hold": {"frames": [73]}
-    },
-    "images": ["/media/marine.png"]
-};
-
-},{}],3:[function(require,module,exports){module.exports = {
+},{"./sheets/marine":2,"./sheets/vanguard":3,"./sheets/common":4,"./client/hexutil":5,"./wol/wol":6}],3:[function(require,module,exports){module.exports = {
     "frames": [
         [68, 313, 60, 94, 0, 33, 76],
         [1541, 219, 60, 94, 0, 33, 76],
@@ -474,7 +385,177 @@ window.addEventListener('load', ready);
     "images": ["/media/vanguard.png"]
 };
 
-},{}],4:[function(require,module,exports){var Game = require('./game/game');
+},{}],2:[function(require,module,exports){module.exports = {
+    "frames": [
+        [1528, 0, 52, 78, 0, 18, 68],
+        [1015, 0, 52, 78, 0, 18, 68],
+        [963, 0, 52, 78, 0, 18, 68],
+        [911, 0, 52, 78, 0, 18, 68],
+        [859, 0, 52, 78, 0, 18, 68],
+        [310, 86, 52, 77, 0, 18, 67],
+        [258, 86, 52, 77, 0, 18, 67],
+        [206, 86, 52, 77, 0, 18, 67],
+        [155, 86, 51, 77, 0, 18, 67],
+        [104, 86, 51, 77, 0, 18, 67],
+        [1992, 0, 52, 77, 0, 18, 67],
+        [1940, 0, 52, 77, 0, 18, 67],
+        [52, 86, 52, 77, 0, 18, 67],
+        [1888, 0, 52, 77, 0, 18, 67],
+        [1733, 0, 52, 77, 0, 18, 67],
+        [1836, 0, 52, 77, 0, 18, 67],
+        [1220, 0, 52, 78, 0, 18, 68],
+        [1272, 0, 52, 78, 0, 18, 68],
+        [1324, 0, 52, 78, 0, 18, 68],
+        [1376, 0, 51, 78, 0, 18, 68],
+        [482, 163, 52, 71, 0, 16, 62],
+        [914, 163, 55, 68, 0, 17, 59],
+        [1023, 163, 57, 66, 0, 19, 58],
+        [969, 163, 54, 67, 0, 17, 58],
+        [744, 163, 52, 69, 0, 15, 59],
+        [378, 163, 52, 71, 0, 15, 60],
+        [430, 163, 52, 71, 0, 15, 59],
+        [271, 163, 53, 72, 0, 15, 58],
+        [1955, 86, 55, 73, 0, 18, 58],
+        [534, 163, 53, 71, 0, 16, 58],
+        [692, 163, 52, 69, 0, 15, 58],
+        [587, 163, 52, 70, 0, 15, 59],
+        [796, 163, 52, 68, 0, 15, 58],
+        [1080, 163, 53, 66, 0, 15, 58],
+        [639, 163, 53, 70, 0, 16, 61],
+        [1733, 86, 52, 73, 0, 17, 64],
+        [1785, 0, 51, 77, 0, 18, 67],
+        [1631, 0, 50, 77, 0, 17, 67],
+        [1427, 0, 50, 78, 0, 17, 68],
+        [1067, 0, 50, 78, 0, 17, 68],
+        [572, 86, 53, 75, 0, 18, 64],
+        [1007, 86, 56, 74, 0, 19, 61],
+        [1677, 86, 56, 73, 0, 19, 60],
+        [1898, 86, 57, 73, 0, 19, 59],
+        [1841, 86, 57, 73, 0, 19, 59],
+        [1785, 86, 56, 73, 0, 19, 59],
+        [633, 0, 102, 86, 0, 19, 72],
+        [531, 0, 102, 86, 0, 19, 72],
+        [102, 0, 102, 86, 0, 19, 72],
+        [735, 0, 124, 86, 0, 19, 72],
+        [321, 0, 102, 86, 0, 19, 72],
+        [0, 0, 102, 86, 0, 19, 72],
+        [423, 0, 108, 86, 0, 19, 72],
+        [204, 0, 117, 86, 0, 19, 72],
+        [1284, 86, 56, 73, 0, 19, 59],
+        [1620, 86, 57, 73, 0, 19, 59],
+        [1340, 86, 57, 73, 0, 19, 59],
+        [1226, 86, 58, 73, 0, 19, 59],
+        [1507, 86, 58, 73, 0, 19, 60],
+        [895, 86, 57, 75, 0, 19, 62],
+        [786, 86, 56, 75, 0, 19, 63],
+        [842, 86, 53, 75, 0, 18, 64],
+        [467, 86, 52, 76, 0, 18, 65],
+        [362, 86, 52, 77, 0, 18, 66],
+        [1168, 0, 52, 78, 0, 18, 67],
+        [1117, 0, 51, 78, 0, 18, 68],
+        [1580, 0, 51, 78, 0, 18, 68],
+        [1477, 0, 51, 78, 0, 18, 68],
+        [414, 86, 53, 77, 0, 18, 65],
+        [625, 86, 54, 75, 0, 18, 62],
+        [1117, 86, 55, 74, 0, 18, 60],
+        [952, 86, 55, 74, 0, 18, 59],
+        [1397, 86, 55, 73, 0, 18, 58],
+        [1452, 86, 55, 73, 0, 18, 58],
+        [217, 163, 54, 72, 0, 19, 57],
+        [0, 163, 53, 72, 0, 18, 57],
+        [53, 163, 54, 72, 0, 18, 57],
+        [324, 163, 54, 72, 0, 18, 57],
+        [162, 163, 55, 72, 0, 18, 57],
+        [1565, 86, 55, 73, 0, 18, 59],
+        [1172, 86, 54, 74, 0, 18, 60],
+        [1063, 86, 54, 74, 0, 18, 61],
+        [679, 86, 54, 75, 0, 18, 62],
+        [733, 86, 53, 75, 0, 18, 63],
+        [519, 86, 53, 76, 0, 18, 65],
+        [1681, 0, 52, 77, 0, 18, 66],
+        [0, 86, 52, 77, 0, 18, 67],
+        [107, 163, 55, 72, 0, 23, 57],
+        [1133, 163, 59, 65, 0, 28, 50],
+        [1388, 163, 61, 62, 0, 30, 48],
+        [1324, 163, 64, 62, 0, 30, 48],
+        [1258, 163, 66, 62, 0, 30, 48],
+        [848, 163, 66, 68, 0, 30, 48],
+        [1192, 163, 66, 65, 0, 30, 48],
+        [1515, 163, 66, 62, 0, 30, 48],
+        [1449, 163, 66, 62, 0, 30, 47],
+        [1581, 163, 65, 60, 0, 29, 45],
+        [1646, 163, 65, 58, 0, 29, 42],
+        [1711, 163, 64, 50, 0, 28, 32],
+        [1775, 163, 69, 43, 0, 27, 23],
+        [1844, 163, 79, 34, 0, 26, 14],
+        [79, 235, 79, 33, 0, 26, 13],
+        [1923, 163, 79, 33, 0, 26, 13],
+        [0, 235, 79, 33, 0, 26, 13],
+        [237, 235, 79, 33, 0, 26, 13],
+        [158, 235, 79, 33, 0, 26, 13],
+        [395, 235, 79, 32, 0, 26, 12],
+        [316, 235, 79, 32, 0, 26, 12],
+        [474, 235, 79, 32, 0, 26, 12],
+        [553, 235, 79, 31, 0, 26, 11]
+    ],
+    "animations": {
+        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
+        "all": {"frames": [0]},
+        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
+        "die_end": {"frames": [109]},
+        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
+        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
+        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
+        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
+        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
+        "move_start": {"frames": [0, 20, 21]},
+        "hit": {"frames": [74, 75, 76, 77, 78]},
+        "defend_hold": {"frames": [73]}
+    },
+    "images": ["/media/marine.png"]
+};
+
+},{}],4:[function(require,module,exports){module.exports = {
+"images": ["/media/common.png"],
+"frames": [
+    [251, 2, 81, 60], 
+    [168, 2, 81, 60], 
+    [85, 2, 81, 60], 
+    [2, 2, 81, 60]
+],
+"animations": {
+    "hex_bg":[0], 
+    "hex_move":[1], 
+    "hex_move_select":[2], 
+    "hex_target":[3]
+}
+};
+
+},{}],5:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],6:[function(require,module,exports){var Game = require('./game/game');
 
 /**
  * @param {Number} columns
@@ -499,4 +580,761 @@ module.exports = {
     createGame: createGame
 };
 
-},{"./game/game":5}]
+},{"./game/game":7}],7:[function(require,module,exports){var HexTiles = require('../tiles/hextiles');
+
+var GameEntity = require('./game-entity');
+var Game = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Game.prototype.entities = null;
+Game.prototype._entitiesDict = null;
+Game.prototype.tiles = null;
+
+/**
+ * @param {Object} options
+ */
+Game.prototype.initialize = function(options) {
+    var columns, rows,
+    columns = 10;
+    rows = 10;
+    if (typeof options === 'object') {
+        if (options.columns) {
+            columns = options.columns;
+        }
+        if (options.rows) {
+            rows = options.rows;
+        }
+    }
+    this.entities = [];
+    this._entitiesDict = {};
+    this.tiles = new HexTiles(columns, rows);
+};
+
+/**
+ * @param {GameEntity} gameEntity
+ */
+Game.prototype.addEntity = function(gameEntity) {
+    if (gameEntity instanceof GameEntity) {
+        this.entities.push(gameEntity);
+        if (gameEntity.id) {
+            this._entitiesDict[gameEntity.id] = gameEntity;
+        }
+    } else {
+        throw(new Error('Not a valid GameEntity'));
+    }
+};
+
+/**
+ * @param {Object} attributes
+ * @return GameEntity
+ */
+Game.prototype.createEntity = function(attributes) {
+    return new GameEntity(attributes);
+};
+
+module.exports = Game;
+
+},{"../tiles/hextiles":8,"./game-entity":9}],8:[function(require,module,exports){var Tiles = require('./tiles');
+var Tile = require('./tile');
+
+var HexTiles = function() {
+    this.initialize.apply(this, arguments);
+};
+
+HexTiles.prototype = new Tiles();
+
+/**
+ * @property EAST
+ * @type {String}
+ */
+HexTiles.prototype.EAST = 'east';
+
+/**
+ * @property WEST
+ * @type {String}
+ */
+HexTiles.prototype.WEST = 'west';
+
+/**
+ * @property SOUTHEAST
+ * @type {String}
+ */
+HexTiles.prototype.SOUTHEAST = 'southEast';
+
+/**
+ * @property NORTHEAST
+ * @type {String}
+ */
+HexTiles.prototype.NORTHEAST = 'northEast';
+
+/**
+ * @property SOUTHWEST
+ * @type {String}
+ */
+HexTiles.prototype.SOUTHWEST = 'southWest';
+
+/**
+ * @property NORTHWEST
+ * @type {String}
+ */
+HexTiles.prototype.NORTHWEST = 'northWest';
+
+/**
+ * Calculates the adjacent x coordinate based on index and radius
+ * @param {string} direction
+ * @param {boolean} isOddRow
+ * @param {number} index
+ * @param {number} i
+ * @return {Number}
+ */
+HexTiles.prototype.deltaX = function(direction, isOddRow, index, i) {
+    var result;
+    if (index === null) {
+        index = 1;
+    }
+    if (i === null) {
+        i = 0;
+    }
+    result = 0;
+    switch (direction) {
+        case this.EAST:
+            result += (isOddRow ? Math.floor(i * 0.5) * -1 : Math.ceil(i * 0.5) * -1) + index;
+        break;
+        case this.WEST:
+            result += (isOddRow ? Math.ceil(i * 0.5) : Math.floor(i * 0.5)) - index;
+        break;
+        case this.SOUTHEAST:
+            result += (isOddRow ? Math.ceil(index * 0.5) : Math.floor(index * 0.5)) - i;
+        break;
+        case this.NORTHEAST:
+            result += Math.floor(index * 0.5) + i - Math.floor(i * 0.5);
+        if (isOddRow) {
+            if (index % 2 && (index + i) % 2) {
+                result++;
+            }
+        } else {
+            if (index % 2 === 0 && (index + i) % 2) {
+                result--;
+            }
+        }
+        break;
+        case this.SOUTHWEST:
+            result -= Math.ceil(index * 0.5) + i - Math.ceil(i * 0.5);
+        if (isOddRow) {
+            if (index % 2 && (index + i) % 2) {
+                result++;
+            }
+        } else {
+            if (index % 2 === 0 && (index + i) % 2) {
+                result--;
+            }
+        }
+        break;
+        case this.NORTHWEST:
+            result += (isOddRow ? Math.ceil(index * -0.5) : Math.floor(index * -0.5)) + i;
+    }
+    return result;
+};
+
+/**
+ * Calculates the adjacent y coordinate based on index and radius
+ * @param {string} direction
+ * @param {boolean} isOddRow
+ * @param {number} index
+ * @param {number} i
+ * @return {Number}
+ */
+HexTiles.prototype.deltaY = function(direction, isOddRow, index, i) {
+    var result;
+    if (index === null) {
+        index = 1;
+    }
+    if (i === null) {
+        i = 0;
+    }
+    result = 0;
+    switch (direction) {
+        case this.EAST:
+            result += i;
+        break;
+        case this.WEST:
+            result += i * -1;
+        break;
+        case this.SOUTHEAST:
+            result += index;
+        break;
+        case this.SOUTHWEST:
+            result += index - i;
+        break;
+        case this.NORTHEAST:
+            result += (index * -1) + i;
+        break;
+        case this.NORTHWEST:
+            result += index * -1;
+    }
+    return result;
+};
+
+/**
+ * Returns the delta of a coordinate based on the direction
+ * @param {number} centerX
+ * @param {number} centerY
+ * @param {string} direction
+ * @param {boolean} isOddRow
+ * @param {number} index
+ * @return {Array}
+ */
+HexTiles.prototype.delta = function(centerX, centerY, direction, isOddRow, index) {
+    var i, result, tile, dx, dy;
+    result = [];
+    for (i = 1; 1 <= index ? i <= index : i >= index; 1 <= index ? i++ : i--) {
+        dx = centerX + this.deltaX(direction, isOddRow, index, i - 1);
+        dy = centerY + this.deltaY(direction, isOddRow, index, i - 1);
+        tile = this.get(dx, dy);
+        if (tile) {
+            result.push(tile);
+        }
+    }
+    return result;
+};
+
+/**
+ * Gets the adjacent neighbors in a hex-like environment
+ * @param {object} tile
+ * @param {number} [radius=1]
+ * @return {Array}
+ */
+HexTiles.prototype.neighbors = function(tile, radius) {
+    var centerX, centerY, east, i, isOddRow, result, northEast, northWest, southEast, southWest, west;
+    if (tile instanceof Tile) {
+        if (typeof radius !== 'number') {
+            radius = 1;
+        }
+        centerX = tile.x;
+        centerY = tile.y;
+        result = [];
+        isOddRow = centerY % 2 > 0;
+        for (i = 1; 1 <= radius ? i <= radius : i >= radius; 1 <= radius ? i++ : i--) {
+            east = this.delta(centerX, centerY, this.EAST, isOddRow, i);
+            result = result.concat(east);
+            west = this.delta(centerX, centerY, this.WEST, isOddRow, i);
+            result = result.concat(west);
+            southEast = this.delta(centerX, centerY, this.SOUTHEAST, isOddRow, i);
+            result = result.concat(southEast);
+            northEast = this.delta(centerX, centerY, this.NORTHEAST, isOddRow, i);
+            result = result.concat(northEast);
+            southWest = this.delta(centerX, centerY, this.SOUTHWEST, isOddRow, i);
+            result = result.concat(southWest);
+            northWest = this.delta(centerX, centerY, this.NORTHWEST, isOddRow, i);
+            result = result.concat(northWest);
+        }
+    } else {
+        throw(new Error('tile should be an instance of Tile'));
+    }
+
+    return result;
+};
+
+/**
+ * Finding nearest heuristics
+ * @param {object} start
+ * @param {object} destination
+ * @return {Number}
+ */
+HexTiles.prototype.euclidean = function(start, destination) {
+    var vectorX, vectorY;
+    vectorX = Math.pow(start.x - destination.x, 2);
+    vectorY = Math.pow(start.y - destination.y, 2);
+    return Math.sqrt(vectorX + vectorY);
+};
+
+
+module.exports= HexTiles;
+
+},{"./tiles":10,"./tile":11}],9:[function(require,module,exports){var Stats = require('../stats/stats');
+var GameEntity = function() {
+    this.initialize.apply(this, arguments);
+}
+
+GameEntity.prototype.stats = null;
+GameEntity.prototype.initialize = function(properties) {
+    this.stats = new Stats();
+    this.stats.add('health', 100);
+    this.stats.add('damage', 10);
+    this.stats.add('defense', 10);
+    this.stats.add('range', 10);
+    this.stats.add('reach', 10);
+};
+
+module.exports = GameEntity;
+
+},{"../stats/stats":12}],11:[function(require,module,exports){var Tile = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * X position
+ * @type number
+ */
+Tile.prototype.x = null;
+
+/**
+ * Y position
+ * @type number
+ */
+Tile.prototype.y = null;
+
+/**
+ * z-index position
+ * @type number
+ */
+Tile.prototype.z = null;
+
+/**
+ * F score (path finding stuff)
+ * @type number
+ */
+Tile.prototype.f = null;
+
+/**
+ * G score (path finding stuff)
+ * @type number
+ */
+Tile.prototype.g = null;
+
+/**
+ * Heuristics score (path finding stuff)
+ * @type number
+ */
+Tile.prototype.h = null;
+
+/**
+ * Parent reference
+ * @type Tile
+ */
+Tile.prototype.parent = null;
+
+/**
+ * @protected
+ * @param x
+ * @param y
+ * @param index
+ */
+Tile.prototype.initialize = function(x, y, index) {
+    this.x = x;
+    this.y = y;
+    this.z = index;
+    this.f = 0;
+    this.g = 0;
+    this.h = 0;
+    this.parent = null;
+};
+
+/**
+ * @method json
+ * @return {Object}
+ */
+Tile.prototype.json = function() {
+    return {
+        x: this.x,
+        y: this.y,
+        z: this.z
+    };
+};
+
+/**
+ * @method pos
+ * @return {String}
+ */
+Tile.prototype.pos = function() {
+    return this.x + "." + this.y;
+};
+
+/**
+ * @method occupy
+ * @param {object} entity
+ */
+Tile.prototype.occupy = function(entity) {
+    if (this.entities.indexOf(entity) === -1) {
+        this.entities.push(entity);
+    }
+};
+
+/**
+ * @method vacate
+ * @param {object} entity
+ */
+Tile.prototype.vacate = function(entity) {
+    this.entities.splice(this.entities.indexOf(entity));
+};
+
+Tile.create = function() {
+    return new Tile();
+};
+module.exports = Tile;
+
+},{}],10:[function(require,module,exports){var Tile = require('./tile');
+
+var Tiles = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * @method initialize
+ * @protected
+ * @param columns
+ * @param rows
+ */
+Tiles.prototype.initialize = function(columns, rows) {
+    this.columns = columns;
+    this.rows = rows;
+    this.matrix = [];
+    for(var countY = 0; countY < this.rows; countY++) {
+        this.matrix.push([]);
+        for(var countX = 0; countX < this.columns; countX++) {
+            var tile = new Tile(countX, countY);
+            this.matrix[countY].push(tile);
+        }
+    }
+};
+
+/**
+ * @method get
+ * @param {number} x
+ * @param {number} y
+ * @return {Tile}
+ */
+Tiles.prototype.get = function(x, y) {
+    var tile;
+    if (this.matrix[y]) {
+        tile = this.matrix[y][x];
+    }
+    return tile;
+};
+
+/**
+ * @method each
+ * @param {function} fn
+ */
+Tiles.prototype.each = function(fn) {
+    if (typeof fn === 'function') {
+        for(var countY = 0; countY < this.rows; countY++) {
+            for(var countX = 0; countX < this.columns; countX++) {
+                var tile = this.matrix[countY][countX];
+                fn.call(this, tile);
+            }
+        }
+    }
+};
+
+/**
+ * @param {Tile} tile
+ * @return {Array}
+ */
+Tiles.prototype.neighbors = function(tile) {
+    /** TODO: main usage is in hex-tiles.js **/
+    return [tile];
+};
+
+/**
+ * Returns a list of arrays via the path-finding algorithm.
+ * @method findPath
+ * @param {Tile} start starting tile
+ * @param {Tile} end target tile
+ * @return {Array}
+ */
+Tiles.prototype.findPath = function(start, end) {
+    var openList,
+        closedList,
+        currentNode,
+        neighbors,
+        neighbor,
+        scoreG,
+        scoreGBest,
+        i,
+        _len;
+    openList = [start];
+    closedList = [];
+    while(openList.length) {
+        var lowestIndex = 0;
+        for(i=0,_len = openList.length; i < _len; i++) {
+            if (openList[i].f < openList[lowestIndex].f) {
+                lowestIndex = i;
+            }
+        }
+        currentNode = openList[lowestIndex];
+        // case END: The result has been found.
+        if (currentNode.pos() === end.pos()) {
+            var current = currentNode;
+            var parent;
+            var tiles = [];
+            while (current.parent) {
+                tiles.push(current);
+                parent = current.parent; // capture the parent element.
+                current.parent = null; // clear the tile's parent
+                current = parent; // move to the next parent
+            }
+            return tiles.reverse();
+        }
+        // case DEFAULT: Move current node to the closed list.
+        openList.splice(currentNode, 1);
+        closedList.push(currentNode);
+        // Find the best score in the neighboring tile of the hex.
+        neighbors = this.neighbors(currentNode);
+        for(i=0, _len = neighbors.length; i < _len; i++) {
+            neighbor = neighbors[i];
+            if (closedList.indexOf(neighbor) > -1 || neighbor.entity) {
+                continue;
+            }
+            scoreG = currentNode.g + 1;
+            scoreGBest = false;
+            // if it's the first time to touch this tile.
+            if(openList.indexOf(neighbor) === -1) {
+                scoreGBest = true;
+                neighbor.h = this.euclidean(neighbor, end);
+                openList.push(neighbor);
+            }
+            else if (scoreG < neighbor.g) {
+                scoreGBest = true;
+            }
+            if (scoreGBest) {
+                neighbor.parent = currentNode;
+                neighbor.g = scoreG;
+                neighbor.f = neighbor.g + neighbor.h;
+            }
+        }
+    }
+    return [];
+};
+
+/**
+ * @method create
+ * @static
+ * @param {number} cols
+ * @param {number} rows
+ * @return {Tiles}
+ */
+Tiles.create = function(cols, rows) {
+    return new Tiles(cols, rows);
+};
+
+module.exports = Tiles;
+
+},{"./tile":11}],12:[function(require,module,exports){var Stat = require('./stat');
+
+var Stats = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * @type {Array}
+ * @private
+ */
+Stats.prototype.list = null;
+
+/**
+ * @type {object}
+ * @private
+ */
+Stats.prototype._dictionary = null;
+
+/**
+ * @method initialize
+ * @protected
+ * @param {object} stats
+ */
+Stats.prototype.initialize = function(stats) {
+    this.list = [];
+    this._dictionary = {};
+    this.set(stats);
+};
+
+/**
+ * Add an attribute
+ * @method add
+ * @param {Stat|Object} data
+ * @param {String} data2
+ */
+Stats.prototype.add = function(data, data2) {
+    var stat;
+    if (data instanceof Stat) {
+        stat = data;
+    } else if (typeof data === 'object') {
+        // { name: 'health', value; 100 }
+        if (typeof data.name === 'string' && typeof data.value === 'number') {
+            stat = new Stat(data.name, data.value);
+        } else {
+            // {health: 100}
+            this.set(data);
+        }
+    } else if (typeof data === 'string' && typeof data2 === 'number') {
+        // health, 100
+        stat = new Stat(data, data2);
+    }
+    if(stat) {
+        this.list.push(stat);
+        this._dictionary[stat.name] = stat;
+    }
+};
+
+/**
+ * Override existing stat data.
+ * @method set
+ * @param {object} stats
+ */
+Stats.prototype.set = function (stats) {
+    var stat;
+    var value;
+    for (var key in stats) {
+        if (stats.hasOwnProperty(key)) {
+            value = stats[key];
+            if (value.max) {
+                value = value.max;
+            }
+            if ((stat = this.get(key))) {
+                stat.setMax(value);
+            } else {
+                this.add(new Stat(key, value));
+            }
+        }
+    }
+};
+
+/**
+ * Returns a re-parsed json equivalent.
+ * @method toJSON
+ * @return {Object}
+ */
+Stats.prototype.toJSON = function() {
+    var attr = {};
+    for(var i=0; i<this.list.length;i++) {
+        var stat = this.list[i];
+        attr[stat.name] = {
+            value: stat.value,
+            max: stat.max
+        };
+    }
+    return attr;
+};
+
+/**
+ * returns a Stat Object
+ * @method get
+ * @param name
+ * @return {Stat}
+ */
+Stats.prototype.get = function(name) {
+    return this._dictionary[name];
+};
+
+module.exports = Stats;
+
+},{"./stat":13}],13:[function(require,module,exports){var Stat = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * @type string
+ */
+Stat.prototype.name = null;
+
+/**
+ * @type number
+ */
+Stat.prototype.value = null;
+
+/**
+ * @type number
+ */
+Stat.prototype.max = null;
+
+/**
+ * @method initialize
+ * @protected
+ * @param {string} name
+ * @param {number} value
+ */
+Stat.prototype.initialize = function(name, value) {
+    this.name = name;
+    this.value = this.max = value;
+};
+
+/**
+ * Sets the value and the maximum value.
+ * @method setBase
+ * @param {number} val
+ */
+Stat.prototype.setBase = function(val) {
+    this.value = this.max = val;
+};
+
+/**
+ * Sets the maximum value
+ * @method setMax
+ * @param {number} val
+ */
+Stat.prototype.setMax = function(val) {
+    this.max = val;
+};
+
+
+/**
+ * Sets the value
+ * @method setValue
+ * @param {number} val
+ * @return {number}
+ */
+Stat.prototype.setValue = function(val) {
+    return this.value = Math.max(Math.min(val, this.max), 0);
+};
+
+/**
+ * Reduces the value to 0
+ * @method empty
+ */
+Stat.prototype.empty = function() {
+    this.value = 0;
+};
+
+/**
+ * Reduce the value by the value of the argument
+ * @param {number} val
+ */
+Stat.prototype.reduce = function(val) {
+    this.setValue(this.value - val);
+};
+
+/**
+ * Add value
+ * @method increase
+ * @param [val=1]
+ */
+Stat.prototype.increase = function(val) {
+    if (typeof val !== 'number') {
+        val = 1;
+    }
+    this.setValue(this.value + val);
+};
+
+/**
+ * Resets the stat value to its maximum value
+ * @method reset
+ * @param val
+ */
+Stat.prototype.reset = function(val) {
+    this.value = this.max;
+};
+
+/**
+ * Gets the ratio of the value from the max value.
+ * @method ratio
+ * @return {Number}
+ */
+Stat.prototype.ratio = function() {
+    return this.value / this.max;
+};
+
+module.exports = Stat;
+
+},{}]},{},[1]);

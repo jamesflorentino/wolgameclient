@@ -11,3 +11,4 @@ March 5, 2013
 - Stats Class
 - Path-finding
 - Range-finding
+- hex tile mapper
