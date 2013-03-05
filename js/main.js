@@ -11,6 +11,7 @@ var hexutil = require('./client/hexutil')
 , settings = require('./client/settings')
 , keycodes = require('./client/keycodes')
 , keymanager = require('./client/keymanager')
+, _ = require('underscore')
 ;
 
 var terrainWidth = hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5);
@@ -32,7 +33,7 @@ var assetManifest = [
 var game;
 
 /** To be defined later **/
-var canvas, stage, queue, background;
+var canvas, stage, queue, background, commonSpriteSheet;
 
 /**
  * @return createjs.BitmapAnimation
@@ -73,7 +74,7 @@ function setTerrain(fn) {
     containers.terrain = new createjs.Container();
     containers.units = new createjs.Container();
     containers.tiles = new createjs.Container();
-    containers.terrain.addChild(containers.tiles);
+    containers.terrain.addChild(containers.tiles, containers.units);
     stage.addChild(
         background, 
         containers.terrain
@@ -92,25 +93,36 @@ function setTerrainInteraction(fn) {
     var startX, panning, minX, maxX;
     maxX = 20;
     minX = canvas.width - terrainWidth - 20;
-    stage.addEventListener('stagemousemove', function(e) {
-        var tx;
-        if (panning) {
-            tx = e.stageX - startX;
-            tx = Math.min(tx, maxX);
-            tx = Math.max(tx, minX);
-            //tx = Math.min(tx, maxX);
-            //tx = Math.max(tx, minX);
-            terrain.x = tx;
-        }
-    });
-    terrain.addEventListener('mousedown', function(e) {
-        startX = e.stageX - terrain.x;
-        panning = true;
-    });
+    //stage.addEventListener('stagemousemove', function(e) {
+    //    var tx;
+    //    if (panning) {
+    //        tx = e.stageX - startX;
+    //        tx = Math.min(tx, maxX);
+    //        tx = Math.max(tx, minX);
+    //        //tx = Math.min(tx, maxX);
+    //        //tx = Math.max(tx, minX);
+    //        terrain.x = tx;
+    //    }
+    //});
+    //terrain.addEventListener('mousedown', function(e) {
+    //    startX = e.stageX - terrain.x;
+    //    panning = true;
+    //});
 
-    stage.addEventListener('stagemouseup', function() {
-        panning = false;
-    });
+    //stage.addEventListener('stagemouseup', function() {
+    //    panning = false;
+    //});
+    fn();
+}
+
+function createImageSprite(name) {
+    var tileMap;
+    if (!commonSpriteSheet) {
+        commonSpriteSheet = new createjs.SpriteSheet(frames.common);
+    }
+    tileMap = new createjs.BitmapAnimation(commonSpriteSheet);
+    tileMap.gotoAndStop(name);
+    return tileMap;
 }
 
 /**
@@ -121,20 +133,13 @@ function setTilemaps(fn) {
     var tiles = game.tiles;
     var tileMapBackground = new createjs.Container();
     tiles.each(function(tile) {
-        var tileMap = new createjs.BitmapAnimation(new createjs.SpriteSheet(frames.common));
-        tileMap.gotoAndPlay('hex_bg');
+        var tileMap = createImageSprite('hex_bg');
         hexutil.position(tileMap, tile);
         tileMapBackground.addChild(tileMap);
     });
     tileMapBackground.cache(0, 0, terrainWidth, terrainHeight);
     containers.tiles.addChild(tileMapBackground);
 
-    var tileCoord = hexutil.coord(tiles.get(0,0), true);
-    var marine = createSprite('marine');
-    marine.x = tileCoord.x;
-    marine.y =  tileCoord.y;
-    marine.gotoAndPlay('idle');
-    containers.units.addChild(marine);
     console.debug('setTilemaps');
     fn();
 }
@@ -145,11 +150,127 @@ function setGame(fn) {
     fn();
 }
 
+function testUnit() {
+    var tile = game.tiles.get(0,0);
+    var tileCoord = hexutil.coord(tile, true);
+    var marine = createSprite('marine');
+    marine.x = tileCoord.x;
+    marine.y =  tileCoord.y;
+    marine.gotoAndPlay('idle');
+    containers.units.addChild(marine);
+
+    var unitTileMap = createTileMap(tile, 'hex_active');
+    containers.tiles.addChild(unitTileMap);
+
+    /** Test path finding algorithm  **/
+    var moveableTiles = game.tiles.neighbors(tile, 3);
+    var tileMaps = [];
+    var linePath, tileMapsRange;
+
+    var clearPath = function() {
+        if (linePath && linePath.parent) {
+            linePath.parent.removeChild(linePath);
+        }
+        while(tileMaps.length) {
+            tileMaps[0].parent.removeChild(tileMaps[0]);
+            tileMaps.shift();
+        }
+    };
+
+    var clearRange = function() {
+        while(tileMapsRange.length) {
+            tileMapsRange[0].parent.removeChild(tileMapsRange[0]);
+            tileMapsRange.shift();
+        }
+    };
+
+    tileMapsRange = createTileMaps(moveableTiles, 'hex_move');
+
+    _.each(tileMapsRange, function(tileMap, i) {
+        var t = moveableTiles[i];
+        tileMap.addEventListener('click', function() {
+            clearPath();
+            tileMaps = createPath(tile, t);
+            var graphics = new createjs.Graphics();
+            graphics
+                .beginStroke('rgba(0,255,255,0.25)')
+                .beginFill('cyan')
+                .setStrokeStyle(6, 'round')
+                .moveTo(unitTileMap.x, unitTileMap.y)
+                .drawEllipse(unitTileMap.x - 10, unitTileMap.y - 5, 20, 10)
+                .moveTo(unitTileMap.x, unitTileMap.y)
+                ;
+            _.each(tileMaps, function(tileMap, i) {
+                graphics
+                    .lineTo(tileMap.x, tileMap.y)
+                    .drawEllipse(tileMap.x - 10, tileMap.y - 5, 20, 10)
+                    .moveTo(tileMap.x, tileMap.y)
+                    ;
+                tileMap.scaleX = tileMap.scaleY = 0;
+                createjs.Tween.get(tileMap)
+                    .wait(40 * i)
+                    .to({
+                        scaleY: 1,
+                        scaleX: 1
+                    }, 350, createjs.Ease.quintOut);
+                tileMap.addEventListener('click', function() {
+                    clearPath();
+                    clearRange();
+                });
+            });
+            linePath = new createjs.Shape(graphics);
+            containers.tiles.addChild(linePath);
+        });
+    });
+}
+
+/**
+ * @param {Tile} start
+ a @param {Tile} end
+ * @return {Array}
+ */
+function createPath(start, end) {
+    var path, tileMaps;
+    path = game.tiles.findPath(start, end);
+    tileMaps = createTileMaps(path, 'hex_move_select');
+    return tileMaps;
+}
+
+function createTileMap(tile, name) {
+    var tileMap;
+    tileMap = createImageSprite(name);
+    hexutil.position(tileMap, tile);
+    return tileMap;
+}
+
+/**
+ * @param {Array} tiles
+ * @param {String} name
+ * @param {Function} fn optional
+ */
+function createTileMaps(tiles, name, fn) {
+    var tileMap, tile, tileMaps;
+    tileMaps = [];
+    for(var i=0; i<tiles.length; i++) {
+        tileMap = createImageSprite(name);
+        tile = tiles[i];
+        hexutil.position(tileMap, tile);
+        containers.tiles.addChild(tileMap);
+        tileMaps.push(tileMap);
+        if (typeof fn === 'function')  {
+            fn(tileMap);
+        }
+    }
+    return tileMaps;
+}
+
 function start() {
+    /** Welcome to the callback-ception. choo choo **/
     setGame(function(err) {
         setTerrain(function(err) {
             setTilemaps(function(err) {
                 setTerrainInteraction(function(err) {
+                    testUnit();
                     resume();
                 });
             });
