@@ -2,10 +2,10 @@
 "images": ["common.png"],
 "frames": [
 
-    [251, 2, 81, 60], 
+    [2, 2, 81, 72], 
+    [85, 64, 81, 60], 
     [168, 2, 81, 60], 
-    [85, 2, 81, 60], 
-    [2, 2, 81, 60]
+    [85, 2, 81, 60]
 ],
 "animations": {
     
@@ -15,7 +15,7 @@
         "hex_target":[3]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:a5d842a7de1c90112e7bf2f2c79186aa$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:1f95369592c27ff7e7049264c49ba071$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 }

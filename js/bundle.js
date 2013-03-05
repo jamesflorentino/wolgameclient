@@ -2,33 +2,24 @@
  * @author James Florentino
  * This file will contain the graphics part
  */
-var BitmapAnimation = createjs.BitmapAnimation,
-SpriteSheet = createjs.SpriteSheet,
-Ticker = createjs.Ticker,
-Container = createjs.Container,
-Bitmap = createjs.Bitmap
-;
+/*jshint laxcomma: true*/
 
 /** SpriteSheet frame data  **/
-var frames = {
-    'marine': require('./sheets/marine'),
-    'vanguard': require('./sheets/vanguard'),
-    'common': require('./sheets/common')
-},
-hexutil = require('./client/hexutil'),
-wol = require('./wol/wol'),
-settings = {
-    backgroundURI: '/media/backgrounds/teal.png',
-    terrainURI: '/media/terrains/gravel.png',
-    terrainX: 0,
-    terrainY: 70,
-    rows: 8,
-    columns: 8
-};
+var hexutil = require('./client/hexutil')
+, wol = require('./wol/wol')
+, frames = require('./client/frames')
+, settings = require('./client/settings')
+, keycodes = require('./client/keycodes')
+, keymanager = require('./client/keymanager')
+;
+
+var terrainWidth = hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5);
+var terrainHeight = hexutil.HEIGHT * settings.rows;
 /** main layers **/
 var containers = {
     terrain: null,
-    units: null
+    units: null,
+    tiles: null
 };
 var assetManifest = [
     frames.marine.images[0],
@@ -38,12 +29,10 @@ var assetManifest = [
     settings.backgroundURI
 ];
 
-
-
 var game;
 
 /** To be defined later **/
-var stage, queue, background;
+var canvas, stage, queue, background;
 
 /**
  * @return createjs.BitmapAnimation
@@ -52,8 +41,8 @@ function createSprite(name) {
     var sheet, animation;
     var frameData = frames[name];
     if (frameData) {
-        sheet = new SpriteSheet(frameData);
-        animation = new BitmapAnimation(sheet);
+        sheet = new createjs.SpriteSheet(frameData);
+        animation = new createjs.BitmapAnimation(sheet);
         animation.gotoAndStop(1);
     }
     return animation;
@@ -64,49 +53,81 @@ function tick() {
 }
 
 function pause() {
-    Ticker.setPaused(true);
+    createjs.Ticker.setPaused(true);
 }
 
 function resume() {
-    Ticker.setPaused(false);
+    createjs.Ticker.setPaused(false);
 }
 
 function getImage(url) {
     return queue.getResult(url);
 }
 
-
+/**
+ * Generates the terrain in the map
+ * @param {Function} fn
+ */
 function setTerrain(fn) {
-    background = new Bitmap(getImage(settings.backgroundURI));
+    background = new createjs.Bitmap(getImage(settings.backgroundURI));
     containers.terrain = new createjs.Container();
     containers.units = new createjs.Container();
-    stage.addChild(background, containers.terrain);
+    containers.tiles = new createjs.Container();
+    containers.terrain.addChild(containers.tiles);
+    stage.addChild(
+        background, 
+        containers.terrain
+    );
 
-    terrain = new Bitmap(getImage(settings.terrainURI));
+    //terrain = new Bitmap(getImage(settings.terrainURI));
+    //containers.terrain.addChild(terrain);
     containers.terrain.x = settings.terrainX;
     containers.terrain.y = settings.terrainY;
-    containers.terrain.addChild(terrain, containers.units);
-    console.log('asd');
+    console.debug('setTerrain');
     fn();
 }
 
+function setTerrainInteraction(fn) {
+    var terrain = containers.terrain;
+    var startX, panning, minX, maxX;
+    maxX = 20;
+    minX = canvas.width - terrainWidth - 20;
+    stage.addEventListener('stagemousemove', function(e) {
+        var tx;
+        if (panning) {
+            tx = e.stageX - startX;
+            tx = Math.min(tx, maxX);
+            tx = Math.max(tx, minX);
+            //tx = Math.min(tx, maxX);
+            //tx = Math.max(tx, minX);
+            terrain.x = tx;
+        }
+    });
+    terrain.addEventListener('mousedown', function(e) {
+        startX = e.stageX - terrain.x;
+        panning = true;
+    });
+
+    stage.addEventListener('stagemouseup', function() {
+        panning = false;
+    });
+}
+
+/**
+ * Generates the sprited tiles
+ * @param {Function} fn
+ */
 function setTilemaps(fn) {
     var tiles = game.tiles;
-    var tileMapBackground = new Container();
+    var tileMapBackground = new createjs.Container();
     tiles.each(function(tile) {
-        var tileMap = new BitmapAnimation(new SpriteSheet(frames.common));
+        var tileMap = new createjs.BitmapAnimation(new createjs.SpriteSheet(frames.common));
         tileMap.gotoAndPlay('hex_bg');
         hexutil.position(tileMap, tile);
         tileMapBackground.addChild(tileMap);
     });
-    tileMapBackground.cache(
-        0, 
-        0, 
-        hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5), 
-        hexutil.HEIGHT * settings.rows
-    );
-    containers.terrain.addChild(tileMapBackground);
-
+    tileMapBackground.cache(0, 0, terrainWidth, terrainHeight);
+    containers.tiles.addChild(tileMapBackground);
 
     var tileCoord = hexutil.coord(tiles.get(0,0), true);
     var marine = createSprite('marine');
@@ -114,30 +135,26 @@ function setTilemaps(fn) {
     marine.y =  tileCoord.y;
     marine.gotoAndPlay('idle');
     containers.units.addChild(marine);
+    console.debug('setTilemaps');
     fn();
 }
 
 function setGame(fn) {
     game = wol.createGame({ columns: settings.columns, rows: settings.rows });
+    console.debug('setGame');
     fn();
 }
 
 function start() {
-
     setGame(function(err) {
         setTerrain(function(err) {
-            setTilemaps(function(err) {});
+            setTilemaps(function(err) {
+                setTerrainInteraction(function(err) {
+                    resume();
+                });
+            });
         });
     });
-
-
-    //var vanguard = createSprite('vanguard');
-    //vanguard.x = 300;
-    //vanguard.y=  300;
-    //vanguard.gotoAndPlay(1);
-    //containers.units.addChild(vanguard);
-
-    resume();
 }
 
 function preload() {
@@ -154,17 +171,536 @@ function preloadComplete() {
  * Called when he page is ready
  */
 function ready() {
-    var canvas = document.querySelector('canvas#game');
+    canvas = document.querySelector('canvas#game');
     stage = new createjs.Stage(canvas);
-    Ticker.addListener(tick);
-    Ticker.setFPS(30);
+    createjs.Ticker.addListener(tick);
+    createjs.Ticker.setFPS(30);
     preload();
     //pause();
 }
 
 window.addEventListener('load', ready);
 
-},{"./sheets/marine":2,"./sheets/vanguard":3,"./sheets/common":4,"./client/hexutil":5,"./wol/wol":6}],3:[function(require,module,exports){module.exports = {
+},{"./client/hexutil":2,"./wol/wol":3,"./client/frames":4,"./client/settings":5,"./client/keycodes":6,"./client/keymanager":7}],2:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],5:[function(require,module,exports){module.exports = {
+    backgroundURI: '/media/backgrounds/teal.png',
+    terrainURI: '/media/terrains/gravel.png',
+    terrainX: 0,
+    terrainY: 40,
+    rows: 9,
+    columns: 16
+};
+
+},{}],6:[function(require,module,exports){module.exports = {
+    MAC_ENTER: 3,
+    BACKSPACE: 8,
+    TAB: 9,
+    ENTER: 13,
+    SHIFT: 16,
+    CTRL: 17,
+    ALT: 18,
+    CAPS_LOCK: 20,
+    ESC: 27,
+    SPACE: 32,
+    END: 35,         // also NUM_SOUTH_WEST
+    HOME: 36,        // also NUM_NORTH_WEST
+    LEFT: 37,        // also NUM_WEST
+    UP: 38,          // also NUM_NORTH
+    RIGHT: 39,       // also NUM_EAST
+    DOWN: 40,        // also NUM_SOUTH
+    ZERO: 48,
+    ONE: 49,
+    TWO: 50,
+    THREE: 51,
+    FOUR: 52,
+    FIVE: 53,
+    SIX: 54,
+    SEVEN: 55,
+    EIGHT: 56,
+    NINE: 57,
+    A: 65,
+    B: 66,
+    C: 67,
+    D: 68,
+    E: 69,
+    F: 70,
+    G: 71,
+    H: 72,
+    I: 73,
+    J: 74,
+    K: 75,
+    L: 76,
+    M: 77,
+    N: 78,
+    O: 79,
+    P: 80,
+    Q: 81,
+    R: 82,
+    S: 83,
+    T: 84,
+    U: 85,
+    V: 86,
+    W: 87,
+    X: 88,
+    Y: 89,
+    Z: 90,
+    DASH: 189,                 // needs localization
+    EQUALS: 187,               // needs localization
+    COMMA: 188,                // needs localization
+    PERIOD: 190,               // needs localization
+    SLASH: 191,                // needs localization
+    APOSTROPHE: 192,           // needs localization
+    TILDE: 192,                // needs localization
+    SINGLE_QUOTE: 222,         // needs localization
+    OPEN_SQUARE_BRACKET: 219,  // needs localization
+    BACKSLASH: 220,            // needs localization
+    CLOSE_SQUARE_BRACKET: 221, // needs localization
+    MAC_FF_META: 224, // Firefox (Gecko) fires this for the meta key instead of 91
+    PHANTOM: 255
+};
+
+},{}],7:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+var KeyManager = function() {
+};
+
+KeyManager.prototype.init = function(document) {
+    this.down = new EventEmitter();
+    this.up = new EventEmitter();
+    var _this = this;
+    document.addEventListener('keydown', function(e) {
+        _this.down.emit(e.keyCode, e);
+    });
+    document.addEventListener('keyup', function(e) {
+        _this.up.emit(e.keyCode, e);
+    });
+};
+
+
+module.exports = new KeyManager();
+
+},{"events":8}],4:[function(require,module,exports){module.exports = {
+    marine: require('../sheets/marine'),
+    vanguard: require('../sheets/vanguard'),
+    common: require('../sheets/common')
+};
+
+},{"../sheets/marine":9,"../sheets/vanguard":10,"../sheets/common":11}],3:[function(require,module,exports){var Game = require('./game/game');
+
+/**
+ * @param {Number} columns
+ * @param {Number} rows
+ * @param {String} type
+ * @return Tiles
+ */
+function createTiles(columns, rows, type) {
+    var ClassFile = type === 'hex' ? HexTiles : Tiles;
+    return new ClassFile(columns, rows);
+}
+
+/**
+ * @param {Object} settings
+ */
+function createGame(settings) {
+    return new Game(settings);
+}
+
+module.exports = {
+    createTiles: createTiles,
+    createGame: createGame
+};
+
+},{"./game/game":12}],13:[function(require,module,exports){// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],8:[function(require,module,exports){(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":13}],9:[function(require,module,exports){module.exports = {
+    "frames": [
+        [1528, 0, 52, 78, 0, 18, 68],
+        [1015, 0, 52, 78, 0, 18, 68],
+        [963, 0, 52, 78, 0, 18, 68],
+        [911, 0, 52, 78, 0, 18, 68],
+        [859, 0, 52, 78, 0, 18, 68],
+        [310, 86, 52, 77, 0, 18, 67],
+        [258, 86, 52, 77, 0, 18, 67],
+        [206, 86, 52, 77, 0, 18, 67],
+        [155, 86, 51, 77, 0, 18, 67],
+        [104, 86, 51, 77, 0, 18, 67],
+        [1992, 0, 52, 77, 0, 18, 67],
+        [1940, 0, 52, 77, 0, 18, 67],
+        [52, 86, 52, 77, 0, 18, 67],
+        [1888, 0, 52, 77, 0, 18, 67],
+        [1733, 0, 52, 77, 0, 18, 67],
+        [1836, 0, 52, 77, 0, 18, 67],
+        [1220, 0, 52, 78, 0, 18, 68],
+        [1272, 0, 52, 78, 0, 18, 68],
+        [1324, 0, 52, 78, 0, 18, 68],
+        [1376, 0, 51, 78, 0, 18, 68],
+        [482, 163, 52, 71, 0, 16, 62],
+        [914, 163, 55, 68, 0, 17, 59],
+        [1023, 163, 57, 66, 0, 19, 58],
+        [969, 163, 54, 67, 0, 17, 58],
+        [744, 163, 52, 69, 0, 15, 59],
+        [378, 163, 52, 71, 0, 15, 60],
+        [430, 163, 52, 71, 0, 15, 59],
+        [271, 163, 53, 72, 0, 15, 58],
+        [1955, 86, 55, 73, 0, 18, 58],
+        [534, 163, 53, 71, 0, 16, 58],
+        [692, 163, 52, 69, 0, 15, 58],
+        [587, 163, 52, 70, 0, 15, 59],
+        [796, 163, 52, 68, 0, 15, 58],
+        [1080, 163, 53, 66, 0, 15, 58],
+        [639, 163, 53, 70, 0, 16, 61],
+        [1733, 86, 52, 73, 0, 17, 64],
+        [1785, 0, 51, 77, 0, 18, 67],
+        [1631, 0, 50, 77, 0, 17, 67],
+        [1427, 0, 50, 78, 0, 17, 68],
+        [1067, 0, 50, 78, 0, 17, 68],
+        [572, 86, 53, 75, 0, 18, 64],
+        [1007, 86, 56, 74, 0, 19, 61],
+        [1677, 86, 56, 73, 0, 19, 60],
+        [1898, 86, 57, 73, 0, 19, 59],
+        [1841, 86, 57, 73, 0, 19, 59],
+        [1785, 86, 56, 73, 0, 19, 59],
+        [633, 0, 102, 86, 0, 19, 72],
+        [531, 0, 102, 86, 0, 19, 72],
+        [102, 0, 102, 86, 0, 19, 72],
+        [735, 0, 124, 86, 0, 19, 72],
+        [321, 0, 102, 86, 0, 19, 72],
+        [0, 0, 102, 86, 0, 19, 72],
+        [423, 0, 108, 86, 0, 19, 72],
+        [204, 0, 117, 86, 0, 19, 72],
+        [1284, 86, 56, 73, 0, 19, 59],
+        [1620, 86, 57, 73, 0, 19, 59],
+        [1340, 86, 57, 73, 0, 19, 59],
+        [1226, 86, 58, 73, 0, 19, 59],
+        [1507, 86, 58, 73, 0, 19, 60],
+        [895, 86, 57, 75, 0, 19, 62],
+        [786, 86, 56, 75, 0, 19, 63],
+        [842, 86, 53, 75, 0, 18, 64],
+        [467, 86, 52, 76, 0, 18, 65],
+        [362, 86, 52, 77, 0, 18, 66],
+        [1168, 0, 52, 78, 0, 18, 67],
+        [1117, 0, 51, 78, 0, 18, 68],
+        [1580, 0, 51, 78, 0, 18, 68],
+        [1477, 0, 51, 78, 0, 18, 68],
+        [414, 86, 53, 77, 0, 18, 65],
+        [625, 86, 54, 75, 0, 18, 62],
+        [1117, 86, 55, 74, 0, 18, 60],
+        [952, 86, 55, 74, 0, 18, 59],
+        [1397, 86, 55, 73, 0, 18, 58],
+        [1452, 86, 55, 73, 0, 18, 58],
+        [217, 163, 54, 72, 0, 19, 57],
+        [0, 163, 53, 72, 0, 18, 57],
+        [53, 163, 54, 72, 0, 18, 57],
+        [324, 163, 54, 72, 0, 18, 57],
+        [162, 163, 55, 72, 0, 18, 57],
+        [1565, 86, 55, 73, 0, 18, 59],
+        [1172, 86, 54, 74, 0, 18, 60],
+        [1063, 86, 54, 74, 0, 18, 61],
+        [679, 86, 54, 75, 0, 18, 62],
+        [733, 86, 53, 75, 0, 18, 63],
+        [519, 86, 53, 76, 0, 18, 65],
+        [1681, 0, 52, 77, 0, 18, 66],
+        [0, 86, 52, 77, 0, 18, 67],
+        [107, 163, 55, 72, 0, 23, 57],
+        [1133, 163, 59, 65, 0, 28, 50],
+        [1388, 163, 61, 62, 0, 30, 48],
+        [1324, 163, 64, 62, 0, 30, 48],
+        [1258, 163, 66, 62, 0, 30, 48],
+        [848, 163, 66, 68, 0, 30, 48],
+        [1192, 163, 66, 65, 0, 30, 48],
+        [1515, 163, 66, 62, 0, 30, 48],
+        [1449, 163, 66, 62, 0, 30, 47],
+        [1581, 163, 65, 60, 0, 29, 45],
+        [1646, 163, 65, 58, 0, 29, 42],
+        [1711, 163, 64, 50, 0, 28, 32],
+        [1775, 163, 69, 43, 0, 27, 23],
+        [1844, 163, 79, 34, 0, 26, 14],
+        [79, 235, 79, 33, 0, 26, 13],
+        [1923, 163, 79, 33, 0, 26, 13],
+        [0, 235, 79, 33, 0, 26, 13],
+        [237, 235, 79, 33, 0, 26, 13],
+        [158, 235, 79, 33, 0, 26, 13],
+        [395, 235, 79, 32, 0, 26, 12],
+        [316, 235, 79, 32, 0, 26, 12],
+        [474, 235, 79, 32, 0, 26, 12],
+        [553, 235, 79, 31, 0, 26, 11]
+    ],
+    "animations": {
+        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
+        "all": {"frames": [0]},
+        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
+        "die_end": {"frames": [109]},
+        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
+        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
+        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
+        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
+        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
+        "move_start": {"frames": [0, 20, 21]},
+        "hit": {"frames": [74, 75, 76, 77, 78]},
+        "defend_hold": {"frames": [73]}
+    },
+    "images": ["/media/marine.png"]
+};
+
+},{}],10:[function(require,module,exports){module.exports = {
     "frames": [
         [68, 313, 60, 94, 0, 33, 76],
         [1541, 219, 60, 94, 0, 33, 76],
@@ -385,202 +921,29 @@ window.addEventListener('load', ready);
     "images": ["/media/vanguard.png"]
 };
 
-},{}],2:[function(require,module,exports){module.exports = {
-    "frames": [
-        [1528, 0, 52, 78, 0, 18, 68],
-        [1015, 0, 52, 78, 0, 18, 68],
-        [963, 0, 52, 78, 0, 18, 68],
-        [911, 0, 52, 78, 0, 18, 68],
-        [859, 0, 52, 78, 0, 18, 68],
-        [310, 86, 52, 77, 0, 18, 67],
-        [258, 86, 52, 77, 0, 18, 67],
-        [206, 86, 52, 77, 0, 18, 67],
-        [155, 86, 51, 77, 0, 18, 67],
-        [104, 86, 51, 77, 0, 18, 67],
-        [1992, 0, 52, 77, 0, 18, 67],
-        [1940, 0, 52, 77, 0, 18, 67],
-        [52, 86, 52, 77, 0, 18, 67],
-        [1888, 0, 52, 77, 0, 18, 67],
-        [1733, 0, 52, 77, 0, 18, 67],
-        [1836, 0, 52, 77, 0, 18, 67],
-        [1220, 0, 52, 78, 0, 18, 68],
-        [1272, 0, 52, 78, 0, 18, 68],
-        [1324, 0, 52, 78, 0, 18, 68],
-        [1376, 0, 51, 78, 0, 18, 68],
-        [482, 163, 52, 71, 0, 16, 62],
-        [914, 163, 55, 68, 0, 17, 59],
-        [1023, 163, 57, 66, 0, 19, 58],
-        [969, 163, 54, 67, 0, 17, 58],
-        [744, 163, 52, 69, 0, 15, 59],
-        [378, 163, 52, 71, 0, 15, 60],
-        [430, 163, 52, 71, 0, 15, 59],
-        [271, 163, 53, 72, 0, 15, 58],
-        [1955, 86, 55, 73, 0, 18, 58],
-        [534, 163, 53, 71, 0, 16, 58],
-        [692, 163, 52, 69, 0, 15, 58],
-        [587, 163, 52, 70, 0, 15, 59],
-        [796, 163, 52, 68, 0, 15, 58],
-        [1080, 163, 53, 66, 0, 15, 58],
-        [639, 163, 53, 70, 0, 16, 61],
-        [1733, 86, 52, 73, 0, 17, 64],
-        [1785, 0, 51, 77, 0, 18, 67],
-        [1631, 0, 50, 77, 0, 17, 67],
-        [1427, 0, 50, 78, 0, 17, 68],
-        [1067, 0, 50, 78, 0, 17, 68],
-        [572, 86, 53, 75, 0, 18, 64],
-        [1007, 86, 56, 74, 0, 19, 61],
-        [1677, 86, 56, 73, 0, 19, 60],
-        [1898, 86, 57, 73, 0, 19, 59],
-        [1841, 86, 57, 73, 0, 19, 59],
-        [1785, 86, 56, 73, 0, 19, 59],
-        [633, 0, 102, 86, 0, 19, 72],
-        [531, 0, 102, 86, 0, 19, 72],
-        [102, 0, 102, 86, 0, 19, 72],
-        [735, 0, 124, 86, 0, 19, 72],
-        [321, 0, 102, 86, 0, 19, 72],
-        [0, 0, 102, 86, 0, 19, 72],
-        [423, 0, 108, 86, 0, 19, 72],
-        [204, 0, 117, 86, 0, 19, 72],
-        [1284, 86, 56, 73, 0, 19, 59],
-        [1620, 86, 57, 73, 0, 19, 59],
-        [1340, 86, 57, 73, 0, 19, 59],
-        [1226, 86, 58, 73, 0, 19, 59],
-        [1507, 86, 58, 73, 0, 19, 60],
-        [895, 86, 57, 75, 0, 19, 62],
-        [786, 86, 56, 75, 0, 19, 63],
-        [842, 86, 53, 75, 0, 18, 64],
-        [467, 86, 52, 76, 0, 18, 65],
-        [362, 86, 52, 77, 0, 18, 66],
-        [1168, 0, 52, 78, 0, 18, 67],
-        [1117, 0, 51, 78, 0, 18, 68],
-        [1580, 0, 51, 78, 0, 18, 68],
-        [1477, 0, 51, 78, 0, 18, 68],
-        [414, 86, 53, 77, 0, 18, 65],
-        [625, 86, 54, 75, 0, 18, 62],
-        [1117, 86, 55, 74, 0, 18, 60],
-        [952, 86, 55, 74, 0, 18, 59],
-        [1397, 86, 55, 73, 0, 18, 58],
-        [1452, 86, 55, 73, 0, 18, 58],
-        [217, 163, 54, 72, 0, 19, 57],
-        [0, 163, 53, 72, 0, 18, 57],
-        [53, 163, 54, 72, 0, 18, 57],
-        [324, 163, 54, 72, 0, 18, 57],
-        [162, 163, 55, 72, 0, 18, 57],
-        [1565, 86, 55, 73, 0, 18, 59],
-        [1172, 86, 54, 74, 0, 18, 60],
-        [1063, 86, 54, 74, 0, 18, 61],
-        [679, 86, 54, 75, 0, 18, 62],
-        [733, 86, 53, 75, 0, 18, 63],
-        [519, 86, 53, 76, 0, 18, 65],
-        [1681, 0, 52, 77, 0, 18, 66],
-        [0, 86, 52, 77, 0, 18, 67],
-        [107, 163, 55, 72, 0, 23, 57],
-        [1133, 163, 59, 65, 0, 28, 50],
-        [1388, 163, 61, 62, 0, 30, 48],
-        [1324, 163, 64, 62, 0, 30, 48],
-        [1258, 163, 66, 62, 0, 30, 48],
-        [848, 163, 66, 68, 0, 30, 48],
-        [1192, 163, 66, 65, 0, 30, 48],
-        [1515, 163, 66, 62, 0, 30, 48],
-        [1449, 163, 66, 62, 0, 30, 47],
-        [1581, 163, 65, 60, 0, 29, 45],
-        [1646, 163, 65, 58, 0, 29, 42],
-        [1711, 163, 64, 50, 0, 28, 32],
-        [1775, 163, 69, 43, 0, 27, 23],
-        [1844, 163, 79, 34, 0, 26, 14],
-        [79, 235, 79, 33, 0, 26, 13],
-        [1923, 163, 79, 33, 0, 26, 13],
-        [0, 235, 79, 33, 0, 26, 13],
-        [237, 235, 79, 33, 0, 26, 13],
-        [158, 235, 79, 33, 0, 26, 13],
-        [395, 235, 79, 32, 0, 26, 12],
-        [316, 235, 79, 32, 0, 26, 12],
-        [474, 235, 79, 32, 0, 26, 12],
-        [553, 235, 79, 31, 0, 26, 11]
-    ],
-    "animations": {
-        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
-        "all": {"frames": [0]},
-        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
-        "die_end": {"frames": [109]},
-        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
-        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
-        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
-        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
-        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
-        "move_start": {"frames": [0, 20, 21]},
-        "hit": {"frames": [74, 75, 76, 77, 78]},
-        "defend_hold": {"frames": [73]}
-    },
-    "images": ["/media/marine.png"]
-};
-
-},{}],4:[function(require,module,exports){module.exports = {
+},{}],11:[function(require,module,exports){module.exports = {
 "images": ["/media/common.png"],
 "frames": [
-    [251, 2, 81, 60], 
+
+    [2, 2, 81, 72], 
+    [85, 64, 81, 60], 
     [168, 2, 81, 60], 
-    [85, 2, 81, 60], 
-    [2, 2, 81, 60]
+    [85, 2, 81, 60]
 ],
 "animations": {
-    "hex_bg":[0], 
-    "hex_move":[1], 
-    "hex_move_select":[2], 
-    "hex_target":[3]
-}
-};
-
-},{}],5:[function(require,module,exports){var HexUtil = {
-    WIDTH: 81,
-    HEIGHT: 60,
-    position: function(hex, tile, center) {
-        var coord = this.coord(tile, center);
-        hex.regX = this.WIDTH * 0.5;
-        hex.regY = this.HEIGHT * 0.5;
-        hex.x = coord.x + hex.regX;
-        hex.y = coord.y + hex.regY;
-        return coord;
-    },
-    coord: function(tile, center) {
-        if (tile === undefined) {
-            return null;
-        }
-        return {
-            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
-            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
-        };
-    }
-};
-
-module.exports = HexUtil;
-
-},{}],6:[function(require,module,exports){var Game = require('./game/game');
-
-/**
- * @param {Number} columns
- * @param {Number} rows
- * @param {String} type
- * @return Tiles
- */
-function createTiles(columns, rows, type) {
-    var ClassFile = type === 'hex' ? HexTiles : Tiles;
-    return new ClassFile(columns, rows);
+    
+        "hex_bg":[0], 
+        "hex_move":[1], 
+        "hex_move_select":[2], 
+        "hex_target":[3]
+},
+"texturepacker": [
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:1f95369592c27ff7e7049264c49ba071$",
+        "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
+]
 }
 
-/**
- * @param {Object} settings
- */
-function createGame(settings) {
-    return new Game(settings);
-}
-
-module.exports = {
-    createTiles: createTiles,
-    createGame: createGame
-};
-
-},{"./game/game":7}],7:[function(require,module,exports){var HexTiles = require('../tiles/hextiles');
+},{}],12:[function(require,module,exports){var HexTiles = require('../tiles/hextiles');
 
 var GameEntity = require('./game-entity');
 var Game = function() {
@@ -635,7 +998,7 @@ Game.prototype.createEntity = function(attributes) {
 
 module.exports = Game;
 
-},{"../tiles/hextiles":8,"./game-entity":9}],8:[function(require,module,exports){var Tiles = require('./tiles');
+},{"../tiles/hextiles":14,"./game-entity":15}],14:[function(require,module,exports){var Tiles = require('./tiles');
 var Tile = require('./tile');
 
 var HexTiles = function() {
@@ -852,7 +1215,7 @@ HexTiles.prototype.euclidean = function(start, destination) {
 
 module.exports= HexTiles;
 
-},{"./tiles":10,"./tile":11}],9:[function(require,module,exports){var Stats = require('../stats/stats');
+},{"./tiles":16,"./tile":17}],15:[function(require,module,exports){var Stats = require('../stats/stats');
 var GameEntity = function() {
     this.initialize.apply(this, arguments);
 }
@@ -869,7 +1232,7 @@ GameEntity.prototype.initialize = function(properties) {
 
 module.exports = GameEntity;
 
-},{"../stats/stats":12}],11:[function(require,module,exports){var Tile = function() {
+},{"../stats/stats":18}],17:[function(require,module,exports){var Tile = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -974,7 +1337,7 @@ Tile.create = function() {
 };
 module.exports = Tile;
 
-},{}],10:[function(require,module,exports){var Tile = require('./tile');
+},{}],16:[function(require,module,exports){var Tile = require('./tile');
 
 var Tiles = function() {
     this.initialize.apply(this, arguments);
@@ -1121,7 +1484,7 @@ Tiles.create = function(cols, rows) {
 
 module.exports = Tiles;
 
-},{"./tile":11}],12:[function(require,module,exports){var Stat = require('./stat');
+},{"./tile":17}],18:[function(require,module,exports){var Stat = require('./stat');
 
 var Stats = function() {
     this.initialize.apply(this, arguments);
@@ -1230,7 +1593,7 @@ Stats.prototype.get = function(name) {
 
 module.exports = Stats;
 
-},{"./stat":13}],13:[function(require,module,exports){var Stat = function() {
+},{"./stat":19}],19:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 

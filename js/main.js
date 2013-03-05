@@ -2,33 +2,24 @@
  * @author James Florentino
  * This file will contain the graphics part
  */
-var BitmapAnimation = createjs.BitmapAnimation,
-SpriteSheet = createjs.SpriteSheet,
-Ticker = createjs.Ticker,
-Container = createjs.Container,
-Bitmap = createjs.Bitmap
-;
+/*jshint laxcomma: true*/
 
 /** SpriteSheet frame data  **/
-var frames = {
-    'marine': require('./sheets/marine'),
-    'vanguard': require('./sheets/vanguard'),
-    'common': require('./sheets/common')
-},
-hexutil = require('./client/hexutil'),
-wol = require('./wol/wol'),
-settings = {
-    backgroundURI: '/media/backgrounds/teal.png',
-    terrainURI: '/media/terrains/gravel.png',
-    terrainX: 0,
-    terrainY: 70,
-    rows: 8,
-    columns: 8
-};
+var hexutil = require('./client/hexutil')
+, wol = require('./wol/wol')
+, frames = require('./client/frames')
+, settings = require('./client/settings')
+, keycodes = require('./client/keycodes')
+, keymanager = require('./client/keymanager')
+;
+
+var terrainWidth = hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5);
+var terrainHeight = hexutil.HEIGHT * settings.rows;
 /** main layers **/
 var containers = {
     terrain: null,
-    units: null
+    units: null,
+    tiles: null
 };
 var assetManifest = [
     frames.marine.images[0],
@@ -38,12 +29,10 @@ var assetManifest = [
     settings.backgroundURI
 ];
 
-
-
 var game;
 
 /** To be defined later **/
-var stage, queue, background;
+var canvas, stage, queue, background;
 
 /**
  * @return createjs.BitmapAnimation
@@ -52,8 +41,8 @@ function createSprite(name) {
     var sheet, animation;
     var frameData = frames[name];
     if (frameData) {
-        sheet = new SpriteSheet(frameData);
-        animation = new BitmapAnimation(sheet);
+        sheet = new createjs.SpriteSheet(frameData);
+        animation = new createjs.BitmapAnimation(sheet);
         animation.gotoAndStop(1);
     }
     return animation;
@@ -64,49 +53,81 @@ function tick() {
 }
 
 function pause() {
-    Ticker.setPaused(true);
+    createjs.Ticker.setPaused(true);
 }
 
 function resume() {
-    Ticker.setPaused(false);
+    createjs.Ticker.setPaused(false);
 }
 
 function getImage(url) {
     return queue.getResult(url);
 }
 
-
+/**
+ * Generates the terrain in the map
+ * @param {Function} fn
+ */
 function setTerrain(fn) {
-    background = new Bitmap(getImage(settings.backgroundURI));
+    background = new createjs.Bitmap(getImage(settings.backgroundURI));
     containers.terrain = new createjs.Container();
     containers.units = new createjs.Container();
-    stage.addChild(background, containers.terrain);
+    containers.tiles = new createjs.Container();
+    containers.terrain.addChild(containers.tiles);
+    stage.addChild(
+        background, 
+        containers.terrain
+    );
 
-    terrain = new Bitmap(getImage(settings.terrainURI));
+    //terrain = new Bitmap(getImage(settings.terrainURI));
+    //containers.terrain.addChild(terrain);
     containers.terrain.x = settings.terrainX;
     containers.terrain.y = settings.terrainY;
-    containers.terrain.addChild(terrain, containers.units);
-    console.log('asd');
+    console.debug('setTerrain');
     fn();
 }
 
+function setTerrainInteraction(fn) {
+    var terrain = containers.terrain;
+    var startX, panning, minX, maxX;
+    maxX = 20;
+    minX = canvas.width - terrainWidth - 20;
+    stage.addEventListener('stagemousemove', function(e) {
+        var tx;
+        if (panning) {
+            tx = e.stageX - startX;
+            tx = Math.min(tx, maxX);
+            tx = Math.max(tx, minX);
+            //tx = Math.min(tx, maxX);
+            //tx = Math.max(tx, minX);
+            terrain.x = tx;
+        }
+    });
+    terrain.addEventListener('mousedown', function(e) {
+        startX = e.stageX - terrain.x;
+        panning = true;
+    });
+
+    stage.addEventListener('stagemouseup', function() {
+        panning = false;
+    });
+}
+
+/**
+ * Generates the sprited tiles
+ * @param {Function} fn
+ */
 function setTilemaps(fn) {
     var tiles = game.tiles;
-    var tileMapBackground = new Container();
+    var tileMapBackground = new createjs.Container();
     tiles.each(function(tile) {
-        var tileMap = new BitmapAnimation(new SpriteSheet(frames.common));
+        var tileMap = new createjs.BitmapAnimation(new createjs.SpriteSheet(frames.common));
         tileMap.gotoAndPlay('hex_bg');
         hexutil.position(tileMap, tile);
         tileMapBackground.addChild(tileMap);
     });
-    tileMapBackground.cache(
-        0, 
-        0, 
-        hexutil.WIDTH * settings.columns + (hexutil.WIDTH * 0.5), 
-        hexutil.HEIGHT * settings.rows
-    );
-    containers.terrain.addChild(tileMapBackground);
-
+    tileMapBackground.cache(0, 0, terrainWidth, terrainHeight);
+    containers.tiles.addChild(tileMapBackground);
 
     var tileCoord = hexutil.coord(tiles.get(0,0), true);
     var marine = createSprite('marine');
@@ -114,30 +135,26 @@ function setTilemaps(fn) {
     marine.y =  tileCoord.y;
     marine.gotoAndPlay('idle');
     containers.units.addChild(marine);
+    console.debug('setTilemaps');
     fn();
 }
 
 function setGame(fn) {
     game = wol.createGame({ columns: settings.columns, rows: settings.rows });
+    console.debug('setGame');
     fn();
 }
 
 function start() {
-
     setGame(function(err) {
         setTerrain(function(err) {
-            setTilemaps(function(err) {});
+            setTilemaps(function(err) {
+                setTerrainInteraction(function(err) {
+                    resume();
+                });
+            });
         });
     });
-
-
-    //var vanguard = createSprite('vanguard');
-    //vanguard.x = 300;
-    //vanguard.y=  300;
-    //vanguard.gotoAndPlay(1);
-    //containers.units.addChild(vanguard);
-
-    resume();
 }
 
 function preload() {
@@ -154,10 +171,10 @@ function preloadComplete() {
  * Called when he page is ready
  */
 function ready() {
-    var canvas = document.querySelector('canvas#game');
+    canvas = document.querySelector('canvas#game');
     stage = new createjs.Stage(canvas);
-    Ticker.addListener(tick);
-    Ticker.setFPS(30);
+    createjs.Ticker.addListener(tick);
+    createjs.Ticker.setFPS(30);
     preload();
     //pause();
 }
