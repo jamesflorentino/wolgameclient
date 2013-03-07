@@ -12,3 +12,9 @@ March 5, 2013
 - Path-finding
 - Range-finding
 - hex tile mapper
+
+March 8, 2013
+
+- Restructured code to reactional callbacks.
+- Game and Client are now separated entities
+- Removed `wol` namespace and folder
