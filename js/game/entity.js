@@ -21,10 +21,13 @@ GameEntity.prototype.initialize = function(options) {
     this.tile = null;
 };
 
-GameEntity.prototype.move = function(tile) {
+GameEntity.prototype.move = function(tile, callback) {
+    var prevTile = this.tile;
     this.prevTile = this.tile;
     this.tile = tile;
-    this.emit('move', tile);
+    if (typeof callback === 'function') {
+        callback(tile, prevTile);
+    }
 };
 
 module.exports = GameEntity;

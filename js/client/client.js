@@ -3,6 +3,9 @@ var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames');
 var settings = require('./settings');
+var spriteClasses = {
+    marine: require('./unit-classes/marine')
+}
 
 var Client = function(game) {
     this.game = game;
@@ -17,17 +20,16 @@ Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
     this.layers = {};
     this.stage = new createjs.Stage(canvas);
-    // get the background resource image
     _this.resource('background', function(err, backgroundImage){ 
-        // set the sprite sheet data
+
         _this.setSpriteSheets(function(err, spriteSheets) {
-            // add the background to the stage
+
             _this.setBackground(backgroundImage, function(err, backgroundLayer) {
-                // set the layers needed for organization of sprites
+
                 _this.initializeLayers(function(err) {
-                    // set the tiles
+
                     _this.setTiles(_this.game.tiles, function() {
-                        // create the event listeners
+
                         _this.setTimers(function(err) {
                             callback();
                         });
@@ -54,23 +56,9 @@ Client.prototype.createSprite = function(name, callback) {
     callback(null, animation);
 };
 
-Client.prototype.addUnit = function(entity, callback) {
-    var _this = this;
-    if (!this.getUnit(entity.id)) {
-        this.getSpriteSheet(entity.type, function(err, spriteSheet) {
-            var animation = new createjs.BitmapAnimation(spriteSheet);
-            animation.gotoAndPlay('idle');
-            _this.layers.units.addChild(animation);
-            _this.units[entity.id] = animation;
-            // events
-            entity.on('move', function(tile) {
-                var pos = HexUtil.coord(tile, true);
-                animation.x = pos.x;
-                animation.y = pos.y;
-            });
-            callback(null, animation);
-        });
-    }
+Client.prototype.createUnit = function(entity, callback) {
+    var UnitSpriteClass = spriteClasses[entity.type];
+    console.log(UnitSpriteClass);
 };
 
 Client.prototype.getUnit = function(id) {
@@ -80,9 +68,6 @@ Client.prototype.getUnit = function(id) {
 Client.prototype.getSpriteSheet = function(name, callback) {
     var spriteSheet = this.spriteSheets[name];
     callback(null, spriteSheet);
-};
-
-Client.prototype.moveEntitySprite = function(sprite, tile) {
 };
 
 Client.prototype.setTiles = function(tiles, callback) {
