@@ -3,7 +3,7 @@ var EventEmitter = require('events').EventEmitter;
 
 var GameEntity = function() {
     this.initialize.apply(this, arguments);
-}
+};
 
 GameEntity.prototype = new EventEmitter();
 
@@ -28,6 +28,7 @@ GameEntity.prototype.move = function(tile, callback) {
     if (typeof callback === 'function') {
         callback(tile, prevTile);
     }
+    this.emit('move', this.tile, this.prevTile);
 };
 
 module.exports = GameEntity;

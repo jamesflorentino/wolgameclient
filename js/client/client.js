@@ -5,7 +5,9 @@ var frames = require('./frames/frames');
 var settings = require('./settings');
 var spriteClasses = {
     marine: require('./unit-classes/marine')
-}
+};
+var UnitSprite = require('./unit-sprite');
+var _ = require('underscore');
 
 var Client = function(game) {
     this.game = game;
@@ -13,9 +15,6 @@ var Client = function(game) {
     this.preloader = new Preloader();
 };
 
-/**
- * @param {Function} callback
- */
 Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
     this.layers = {};
@@ -57,12 +56,120 @@ Client.prototype.createSprite = function(name, callback) {
 };
 
 Client.prototype.createUnit = function(entity, callback) {
-    var UnitSpriteClass = spriteClasses[entity.type];
-    console.log(UnitSpriteClass);
+    var unit, UnitSpriteClass, _this = this;
+    UnitSpriteClass = spriteClasses[entity.type];
+    if (UnitSpriteClass) {
+        unit = new UnitSpriteClass(entity);
+        _this.addUnit(entity.id, unit, function() {
+            _this.unitEvents(unit, entity);
+            if (entity.tile) {
+                _this.moveUnit(unit, entity.tile, function() {
+                    callback(null, unit);
+                });
+            } else {
+                callback(null, unit);
+            }
+        });
+
+    } else {
+        callback('Unit Class ' + entity.type + ' is not defined.');
+    }
 };
 
-Client.prototype.getUnit = function(id) {
-    return this.units[id];
+Client.prototype.unitEvents = function(unit, entity) {
+    var game = this.game,
+    _this = this;
+    entity.on('move', function(tile, prevTile) {
+        var tween = createjs.Tween.get(unit.container);
+        unit.prevX = HexUtil.coord(prevTile).x;
+        unit.moveStart();
+        _this.generateTilePath(
+            [prevTile].concat(game.tiles.findPath(prevTile, tile)),
+            function(tileSprite, i) {
+                if (i) { // Skip the 1st tile since it's the current
+                    tween = tween
+                        .call(function() { // tell which direction to face
+                            if (tileSprite.x > unit.prevX) {
+                                unit.face('right');
+                            } else {
+                                unit.face('left');
+                            }
+                            unit.prevX = tileSprite.x;
+                        })
+                        .to({
+                            x: tileSprite.x,
+                            y: tileSprite.y
+                        }, unit.walkDuration);
+                }
+            }
+        );
+        tween.call(function() {
+            unit.moveEnd();
+        });
+    });
+};
+
+/**
+ * Generates a visual path for the unit to walk onto
+ * @param {HexTiles} tiles
+ * @param {Function} callback
+ */
+Client.prototype.generateTilePath = function(tiles, callback) {
+    var _this = this;
+    var tileSprites = [];
+    var graphics = new createjs.Graphics();
+    var tileSpriteCoordinates = HexUtil.coord(tiles[0]);
+
+    graphics
+        .beginStroke('rgba(0,255,255,0.25)')
+        .beginFill('cyan')
+        .setStrokeStyle(6, 'round');
+    _.each(tiles, function(tile, i) {
+        /** Generate sprites **/
+        _this.createSprite('hex_move', function(err, tileSprite) {
+            HexUtil.position(tileSprite, tile);
+            _this.layers.tiles.addChild(tileSprite);
+            tileSprites.push(tileSprite);
+            /** animate **/
+            tileSprite.scaleX = 0;
+            tileSprite.scaleY = 0;
+            createjs.Tween
+                .get(tileSprite)
+                .wait(i * 60)
+                .call(function() {
+                    graphics
+                        .lineTo(tileSprite.x, tileSprite.y)
+                        .drawEllipse(tileSprite.x - 10, tileSprite.y - 5, 20, 10)
+                        .moveTo(tileSprite.x, tileSprite.y);
+                })
+                .to({
+                    scaleX: 1,
+                    scaleY: 1
+                }, 350, createjs.Ease.quintOut);
+                if (typeof callback === 'function') {
+                    callback(tileSprite, i);
+                }
+        });
+    });
+    var linePath = new createjs.Shape(graphics);
+    this.layers.tiles.addChild(linePath);
+};
+
+Client.prototype.moveUnit = function(unit, tile, callback) {
+    var coord = HexUtil.coord(tile, true);
+    unit.container.x = coord.x;
+    unit.container.y = coord.y;
+    callback(null, unit);
+};
+
+Client.prototype.addUnit = function(id, unit, callback) {
+    this.units[id] = unit;
+    this.layers.units.addChild(unit.container);
+    callback(null, unit);
+};
+
+Client.prototype.getUnit = function(id, callback) {
+    callback(null, this.units[id]);
 };
 
 Client.prototype.getSpriteSheet = function(name, callback) {
@@ -83,6 +190,7 @@ Client.prototype.setTiles = function(tiles, callback) {
     });
     cacheContainer.cache(0, 0, terrainWidth, terrainHeight);
     this.layers.terrain.addChild(cacheContainer);
+    this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
     this.layers.terrain.y = settings.terrainY;
     callback(tiles);
@@ -95,6 +203,7 @@ Client.prototype.render = function() {
 Client.prototype.setTimers = function(callback) {
     //createjs.Ticker.addEventListener('tick', this.render.bind(this));
     createjs.Ticker.addListener(this.render.bind(this));
+    createjs.Ticker.setFPS(30);
     callback();
 };
 
@@ -114,10 +223,6 @@ Client.prototype.initializeLayers = function(callback) {
     callback(null);
 };
 
-/**
- * @param {String} uri
- * @param {Function} callback
- */
 Client.prototype.resource = function(uri, callback) {
     var resource = this.preloader.getResource(uri);
     if (resource) {
@@ -125,7 +230,6 @@ Client.prototype.resource = function(uri, callback) {
     } else {
         callback(new Error('The resource', uri, 'is not found'));
     }
-
 };
 
 Client.prototype.play = function() {
@@ -136,15 +240,9 @@ Client.prototype.pause = function() {
     createjs.Ticker.setPaused(true);
 };
 
-/**
- * @param {Game} game
- * @param {Function} callback
- */
 Client.create = function(game, callback) {
     var client = new Client(game);
     callback(null, client);
 };
-
-
 
 module.exports = Client;
