@@ -18,3 +18,13 @@ March 8, 2013
 - Restructured code to reactional callbacks.
 - Game and Client are now separated entities
 - Removed `wol` namespace and folder
+
+March 9, 2013
+
+- Struggling with a bug in the path-finding algorithm
+
+March 10, 2013
+
+- Realized the problem of my path-finding algorithm. Seems I was occupying the tile first before performing a path-finding function.
+- `walkDuration` condition when moving diagonally is reduced to 75%.
+

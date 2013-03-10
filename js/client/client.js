@@ -79,14 +79,24 @@ Client.prototype.createUnit = function(entity, callback) {
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
-    entity.on('move', function(tile, prevTile) {
+    entity.on('move:start', function(tile, prevTile) {
         var tween = createjs.Tween.get(unit.container);
+        /** override **/
+        var n = game.tiles.neighbors(prevTile);
+        _.each(n, function(ts) {
+            console.log(ts);
+        })
+        var path = game.tiles.findPath(prevTile, tile);
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
-        _this.generateTilePath(
-            [prevTile].concat(game.tiles.findPath(prevTile, tile)),
-            function(tileSprite, i) {
+        var tilePathObject = _this.generateTilePath(
+            [prevTile].concat(path),
+            function(tileSprite, i, prevTileSprite) {
                 if (i) { // Skip the 1st tile since it's the current
+                    var walkDuration =
+                        tileSprite.y !== (prevTileSprite ? prevTileSprite.y : tileSprite.y) ?
+                        unit.walkDuration * 0.75 :
+                        unit.walkDuration;
                     tween = tween
                         .call(function() { // tell which direction to face
                             if (tileSprite.x > unit.prevX) {
@@ -95,15 +105,37 @@ Client.prototype.unitEvents = function(unit, entity) {
                                 unit.face('left');
                             }
                             unit.prevX = tileSprite.x;
+                            unit.prevY = tileSprite.y;
                         })
                         .to({
                             x: tileSprite.x,
                             y: tileSprite.y
-                        }, unit.walkDuration);
+                        }, walkDuration);
                 }
             }
         );
         tween.call(function() {
+            var linePath = tilePathObject.linePath;
+            var tileSprites = tilePathObject.tileSprites;
+            _.each(tileSprites, function(tileSprite, i) {
+                createjs.Tween.get(tileSprite).wait(i * 100)
+                .to({
+                    scaleX: 0,
+                    scaleY: 0
+                }, 250, createjs.Ease.backIn)
+                .call(function() {
+                    tileSprite.parent.removeChild(tileSprite);
+                });
+            });
+            createjs.Tween
+                .get(linePath)
+                .wait(150 * tileSprites.length)
+                .to({
+                    alpha: 0
+                }, 150)
+                .call(function() {
+                    linePath.parent.removeChild(linePath);
+                });
             unit.moveEnd();
         });
     });
@@ -126,7 +158,7 @@ Client.prototype.generateTilePath = function(tiles, callback) {
         .setStrokeStyle(6, 'round');
     _.each(tiles, function(tile, i) {
         /** Generate sprites **/
-        _this.createSprite('hex_move', function(err, tileSprite) {
+        _this.createSprite('hex_move_select', function(err, tileSprite) {
             HexUtil.position(tileSprite, tile);
             _this.layers.tiles.addChild(tileSprite);
             tileSprites.push(tileSprite);
@@ -135,7 +167,7 @@ Client.prototype.generateTilePath = function(tiles, callback) {
             tileSprite.scaleY = 0;
             createjs.Tween
                 .get(tileSprite)
-                .wait(i * 60)
+                .wait(i * 80)
                 .call(function() {
                     graphics
                         .lineTo(tileSprite.x, tileSprite.y)
@@ -145,14 +177,18 @@ Client.prototype.generateTilePath = function(tiles, callback) {
                 .to({
                     scaleX: 1,
                     scaleY: 1
-                }, 350, createjs.Ease.quintOut);
+                }, 350, createjs.Ease.backOut);
                 if (typeof callback === 'function') {
-                    callback(tileSprite, i);
+                    callback(tileSprite, i, tileSprites[i-1]);
                 }
         });
     });
     var linePath = new createjs.Shape(graphics);
     this.layers.tiles.addChild(linePath);
+    return {
+        tileSprites: tileSprites,
+        linePath: linePath
+    };
 };
 
 Client.prototype.moveUnit = function(unit, tile, callback) {

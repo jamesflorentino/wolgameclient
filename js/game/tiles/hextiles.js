@@ -199,18 +199,5 @@ HexTiles.prototype.neighbors = function(tile, radius) {
     return result;
 };
 
-/**
- * Finding nearest heuristics
- * @param {object} start
- * @param {object} destination
- * @return {Number}
- */
-HexTiles.prototype.euclidean = function(start, destination) {
-    var vectorX, vectorY;
-    vectorX = Math.pow(start.x - destination.x, 2);
-    vectorY = Math.pow(start.y - destination.y, 2);
-    return Math.sqrt(vectorX + vectorY);
-};
-
 
 module.exports= HexTiles;

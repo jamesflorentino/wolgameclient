@@ -25,10 +25,14 @@ GameEntity.prototype.move = function(tile, callback) {
     var prevTile = this.tile;
     this.prevTile = this.tile;
     this.tile = tile;
+    this.emit('move:start', tile, prevTile);
+    if (prevTile) {
+        prevTile.vacate();
+    }
+    tile.occupy(this);
     if (typeof callback === 'function') {
         callback(tile, prevTile);
     }
-    this.emit('move', this.tile, this.prevTile);
 };
 
 module.exports = GameEntity;

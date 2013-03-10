@@ -70,14 +70,14 @@ Tiles.prototype.neighbors = function(tile) {
  */
 Tiles.prototype.findPath = function(start, end) {
     var openList,
-        closedList,
-        currentNode,
-        neighbors,
-        neighbor,
-        scoreG,
-        scoreGBest,
-        i,
-        _len;
+    closedList,
+    currentNode,
+    neighbors,
+    neighbor,
+    scoreG,
+    scoreGBest,
+    i,
+    _len;
     openList = [start];
     closedList = [];
     while(openList.length) {
@@ -107,6 +107,7 @@ Tiles.prototype.findPath = function(start, end) {
         // Find the best score in the neighboring tile of the hex.
         neighbors = this.neighbors(currentNode);
         for(i=0, _len = neighbors.length; i < _len; i++) {
+        //for(i = neighbors.length - 1; i > 0; i--) {
             neighbor = neighbors[i];
             if (closedList.indexOf(neighbor) > -1 || neighbor.entity) {
                 continue;
@@ -118,8 +119,7 @@ Tiles.prototype.findPath = function(start, end) {
                 scoreGBest = true;
                 neighbor.h = this.euclidean(neighbor, end);
                 openList.push(neighbor);
-            }
-            else if (scoreG < neighbor.g) {
+            } else if (scoreG < neighbor.g) {
                 scoreGBest = true;
             }
             if (scoreGBest) {
@@ -131,6 +131,21 @@ Tiles.prototype.findPath = function(start, end) {
     }
     return [];
 };
+
+/**
+ * Finding nearest heuristics
+ * @param {object} start
+ * @param {object} destination
+ * @return {Number}
+ */
+Tiles.prototype.euclidean = function(start, destination) {
+    var vectorX, vectorY;
+    vectorX = Math.pow(start.x - destination.x, 2);
+    vectorY = Math.pow(start.y - destination.y, 2);
+    return Math.sqrt(vectorX + vectorY);
+};
+
+
 
 /**
  * @method create
