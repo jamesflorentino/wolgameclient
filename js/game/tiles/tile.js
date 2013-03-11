@@ -43,7 +43,9 @@ Tile.prototype.pos = function() {
  * @param {Object} entity
  */
 Tile.prototype.occupy = function(entity) {
-    this.entity = entity;
+    if (!this.has(entity)) {
+        this.entities.push(entity);
+    }
 };
 
 /**
@@ -51,8 +53,12 @@ Tile.prototype.occupy = function(entity) {
  * @param {Object} entity
  */
 Tile.prototype.vacate = function(entity) {
-    this.entity = null;
+    this.entities.splice(this.entities.indexOf(entity), 0);
 };
+
+Tile.prototype.has = function(entity) {
+    return this.entities.indexOf(entity) > -1;
+}
 
 Tile.create = function() {
     return new Tile();

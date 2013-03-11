@@ -4,7 +4,8 @@ var HexUtil = require('./hexutil');
 var frames = require('./frames/frames');
 var settings = require('./settings');
 var spriteClasses = {
-    marine: require('./unit-classes/marine')
+    marine: require('./unit-classes/marine'),
+    vanguard: require('./unit-classes/vanguard')
 };
 var UnitSprite = require('./unit-sprite');
 var _ = require('underscore');
@@ -79,13 +80,49 @@ Client.prototype.createUnit = function(entity, callback) {
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
+    entity.on('act', function(command) {
+        var targetUnits = [];
+        // pool the sprite equivalent of the target entities
+        (function() {
+            command.eachTarget(function(target) {
+                _this.getUnit(target.entity.id, function(err, targetUnit) {
+                    targetUnits.push(targetUnit);
+                });
+            });
+        })();
+        // Make sure they're all clean
+        unit.removeAllListeners('act:end');
+        unit.removeAllListeners('act');
+
+        unit.on('act:end', function() {
+            unit.removeAllListeners('act:end');
+            unit.removeAllListeners('act');
+            command.eachTarget(function(target) {
+                _this.getUnit(target.entity.id, function(err, targetUnit) {
+                    if (target.entity.stats.get('health').value === 0) {
+                        targetUnit.die();
+                    } else {
+                        targetUnit.damageEnd();
+                    }
+                });
+            });
+        });
+
+        unit.on('act', function(damage) {
+            _.each(targetUnits, function(targetUnit) {
+                targetUnit.damage();
+            });
+        });
+
+        unit.actStart(command);
+        _.each(targetUnits, function(targetUnit) {
+            targetUnit.damageStart();
+        });
+
+    });
+
     entity.on('move:start', function(tile, prevTile) {
         var tween = createjs.Tween.get(unit.container);
-        /** override **/
-        var n = game.tiles.neighbors(prevTile);
-        _.each(n, function(ts) {
-            console.log(ts);
-        })
         var path = game.tiles.findPath(prevTile, tile);
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
@@ -129,7 +166,7 @@ Client.prototype.unitEvents = function(unit, entity) {
             });
             createjs.Tween
                 .get(linePath)
-                .wait(150 * tileSprites.length)
+                .wait(105 * tileSprites.length)
                 .to({
                     alpha: 0
                 }, 150)
@@ -205,7 +242,11 @@ Client.prototype.addUnit = function(id, unit, callback) {
 };
 
 Client.prototype.getUnit = function(id, callback) {
-    callback(null, this.units[id]);
+    var unit = this.units[id];
+    if (unit) {
+        callback(null, unit);
+    }
+    return unit;
 };
 
 Client.prototype.getSpriteSheet = function(name, callback) {

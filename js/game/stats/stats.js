@@ -25,6 +25,7 @@ Stats.prototype.initialize = function(stats) {
     this.list = [];
     this._dictionary = {};
     this.set(stats);
+    this.add('null', 0);
 };
 
 /**
@@ -102,7 +103,11 @@ Stats.prototype.toJSON = function() {
  * @return {Stat}
  */
 Stats.prototype.get = function(name) {
-    return this._dictionary[name];
+    var stat = this._dictionary[name];
+    if (!stat) {
+        stat = this.get('null');
+    }
+    return stat;
 };
 
 module.exports = Stats;

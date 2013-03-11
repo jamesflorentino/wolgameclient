@@ -107,9 +107,8 @@ Tiles.prototype.findPath = function(start, end) {
         // Find the best score in the neighboring tile of the hex.
         neighbors = this.neighbors(currentNode);
         for(i=0, _len = neighbors.length; i < _len; i++) {
-        //for(i = neighbors.length - 1; i > 0; i--) {
             neighbor = neighbors[i];
-            if (closedList.indexOf(neighbor) > -1 || neighbor.entity) {
+            if (closedList.indexOf(neighbor) > -1 || neighbor.entities.length > 0) {
                 continue;
             }
             scoreG = currentNode.g + 1;

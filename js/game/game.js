@@ -1,6 +1,8 @@
 var HexTiles = require('./tiles/hextiles');
 var EventEmitter = require('events').EventEmitter;
 var GameEntity = require('./entity');
+var Command = require('./command');
+var _ = require('underscore');
 
 var Game = function() {
     this.initialize.apply(this, arguments);
@@ -64,6 +66,28 @@ Game.prototype.getTile = function(coord, callback) {
         callback(null, tile);
     } else {
         callback('Tile is invalid');
+    }
+};
+
+Game.prototype.createCommand = function(data, callback) {
+    var targets, command, _this = this;
+    if (typeof data === 'object') {
+        targets = [];
+        if (data.targets instanceof Array) {
+            _.each(data.targets, function(targetObj) {
+                _this.getEntity(targetObj.id, function(err, entity) {
+                    if (targets.indexOf(entity) === -1) {
+                        targets.push({
+                            entity: entity,
+                            damage: targetObj.damage
+                        });
+                    }
+                });
+            });
+        }
+        command = Command.create(data);
+        command.targets = targets;
+        callback(null, command);
     }
 };
 

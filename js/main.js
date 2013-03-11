@@ -26,39 +26,61 @@ function bindSocket(socket, game) {
             });
         });
     });
+
+    socket.on('unit:act', function unitAct(data) {
+        game.getEntity(data.id, function getEntity(err, entity) {
+            game.createCommand(data, function(err, command) {
+                entity.act(command);
+            });
+        });
+    });
 }
 
 function test() {
     /** Test **/
-    socket.on('client:ready', function() {
+    socket.on('test:spawn', function() {
         setTimeout(function() {
             socket.emit('unit:spawn', {
-                id: 10,
+                id: 'marine',
                 type: 'marine',
                 x: 1,
                 y: 0
             });
 
             socket.emit('unit:spawn', {
-                id: 1,
-                type: 'marine',
+                id: 'vanguard',
+                type: 'vanguard',
                 x: 1,
                 y: 1
             });
-
-
-            setTimeout(function() {
-                socket.emit('unit:move', {
-                    id: 10,
-                    x: 0,
-                    y: 2
-                });
-            }, 250);
-
         }, 250);
     });
 
-    socket.emit('client:ready');
+    socket.on('test:move', function() {
+        setTimeout(function() {
+            socket.emit('unit:move', {
+                id: 'marine',
+                type: 'marine',
+                x: 4,
+                y: 4
+            });
+        }, 250);
+    });
+
+    socket.on('test:attack', function() {
+        setTimeout(function() {
+            socket.emit('unit:act', {
+                id: 'marine',
+                attack_id: 'rifleshot',
+                targets: [
+                    { id: 'vanguard', damage: 100 }
+                ]
+            });
+        }, 250);
+    });
+
+    socket.emit('test:spawn');
+    socket.emit('test:attack');
 }
 
 function bindGame(game, client) {

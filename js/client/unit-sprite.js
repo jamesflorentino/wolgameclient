@@ -10,6 +10,7 @@ UnitSprite.prototype.initialize = function(entity) {
     this.entity = entity;
     this.walkDuration = 1000;
     this.container = new createjs.Container();
+    this.endAnimations = new EventEmitter();
 };
 
 UnitSprite.prototype.face = function(direction) {
@@ -33,5 +34,42 @@ UnitSprite.prototype.moveStart = function() {
 UnitSprite.prototype.moveEnd = function() {
     this.emit('move:end');
 };
+
+UnitSprite.prototype.actEnd = function() {
+    this.emit('act:end');
+};
+
+UnitSprite.prototype.actStart = function() {
+    this.emit('act:start');
+};
+
+UnitSprite.prototype.act = function() {
+    this.emit('act');
+};
+
+UnitSprite.prototype.damageStart = function() {
+    this.emit('damage:start');
+};
+
+/**
+ * When the sprite resumes to its normal pose after receving damage
+ */
+UnitSprite.prototype.damageEnd = function() {
+    this.emit('damage:end');
+};
+
+/**
+ * Event where the sprite receives a damage and performs a hit animation
+ */
+UnitSprite.prototype.damage = function() {
+    this.emit('damage');
+};
+
+UnitSprite.prototype.die = function() {
+    this.emit('die');
+};
+
+
+
 
 module.exports = UnitSprite;
