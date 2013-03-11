@@ -28,3 +28,8 @@ March 10, 2013
 - Realized the problem of my path-finding algorithm. Seems I was occupying the tile first before performing a path-finding function.
 - `walkDuration` condition when moving diagonally is reduced to 75%.
 
+
+March 12, 2013
+
+- Bind entity events to the unit sprite counterpart.
+- create a createTiles method to produce a faster way of generating hexes.
