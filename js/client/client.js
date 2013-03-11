@@ -82,6 +82,7 @@ Client.prototype.unitEvents = function(unit, entity) {
     _this = this;
     entity.on('act', function(command) {
         var targetUnits = [];
+        var tileSprites = [];
         // pool the sprite equivalent of the target entities
         (function() {
             command.eachTarget(function(target) {
@@ -106,6 +107,9 @@ Client.prototype.unitEvents = function(unit, entity) {
                     }
                 });
             });
+            _.each(tileSprites, function(tileSprite) {
+                tileSprite.parent.removeChild(tileSprite);
+            });
         });
 
         unit.on('act', function(damage) {
@@ -115,8 +119,13 @@ Client.prototype.unitEvents = function(unit, entity) {
         });
 
         unit.actStart(command);
-        _.each(targetUnits, function(targetUnit) {
-            targetUnit.damageStart();
+        command.eachTarget(function(target) {
+            _this.getUnit(target.entity.id, function(err, targetUnit) {
+                _this.createTile('hex_target', target.entity.tile, function(err, tileSprite) {
+                    tileSprites.push(tileSprite);
+                });
+                targetUnit.damageStart();
+            });
         });
 
     });
@@ -175,6 +184,28 @@ Client.prototype.unitEvents = function(unit, entity) {
                 });
             unit.moveEnd();
         });
+    });
+};
+
+Client.prototype.createTiles = function(name, tiles, callback) {
+    var _this = this, genTiles = [];
+    _.each(tiles, function(tile) {
+        _this.createSprite(name, function(err, tileSprite) {
+            HexUtil.position(tileSprite, tile);
+            _this.layers.tiles.addChild(tileSprite);
+            genTiles.push(tile);
+        });
+    });
+
+    callback(null, genTiles);
+};
+
+Client.prototype.createTile = function(name, tile, callback) {
+    var _this = this;
+    _this.createSprite(name, function(err, tileSprite) {
+        HexUtil.position(tileSprite, tile);
+        _this.layers.tiles.addChild(tileSprite);
+        callback(null, tileSprite);
     });
 };
 
