@@ -34,6 +34,12 @@ function bindSocket(socket, game) {
             });
         });
     });
+
+    socket.on('unit:turn', function unitTurn(data) {
+        game.getEntity(data.id, function (err, entity) {
+            entity.turn();
+        });
+    });
 }
 
 function test() {
@@ -50,8 +56,8 @@ function test() {
             socket.emit('unit:spawn', {
                 id: 'vanguard',
                 type: 'vanguard',
-                x: 1,
-                y: 1
+                x: 0,
+                y: 0
             });
         }, 250);
     });
@@ -59,10 +65,9 @@ function test() {
     socket.on('test:move', function() {
         setTimeout(function() {
             socket.emit('unit:move', {
-                id: 'marine',
-                type: 'marine',
-                x: 4,
-                y: 4
+                id: 'vanguard',
+                x: 3,
+                y: 0
             });
         }, 250);
     });
@@ -79,8 +84,16 @@ function test() {
         }, 250);
     });
 
+    socket.on('test:turn', function() {
+        setTimeout(function() {
+            socket.emit('unit:turn', {
+                id: 'marine'
+            });
+        }, 300);
+    });
+
     socket.emit('test:spawn');
-    socket.emit('test:attack');
+    socket.emit('test:move');
 }
 
 function bindGame(game, client) {

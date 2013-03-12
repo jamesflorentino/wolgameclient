@@ -14,11 +14,13 @@ Tiles.prototype.initialize = function(columns, rows) {
     this.columns = columns;
     this.rows = rows;
     this.matrix = [];
+    this.total = 0;
     for(var countY = 0; countY < this.rows; countY++) {
         this.matrix.push([]);
         for(var countX = 0; countX < this.columns; countX++) {
-            var tile = new Tile(countX, countY);
+            var tile = new Tile(countX, countY, this.total);
             this.matrix[countY].push(tile);
+            this.total++;
         }
     }
 };

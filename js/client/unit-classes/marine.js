@@ -23,7 +23,7 @@ Marine.prototype.initialize = function(entity) {
 
     /** animation callbacks **/
     this.endAnimations.on('attack', function() {
-        _this.actEnd();
+        //_this.actEnd();
     });
 
     this.animation.addEventListener('animationend', function(event) {
@@ -48,6 +48,9 @@ Marine.prototype.actStart = function() {
     createjs.Tween.get(this)
         .wait(300).call(act)
         .wait(300).call(act)
+        .wait(300).call(function() {
+            _this.actEnd();
+        })
         ;
 };
 

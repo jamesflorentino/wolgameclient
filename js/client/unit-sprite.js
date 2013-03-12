@@ -35,6 +35,10 @@ UnitSprite.prototype.moveEnd = function() {
     this.emit('move:end');
 };
 
+UnitSprite.prototype.move = function(tile) {
+    this.emit('move', tile);
+};
+
 UnitSprite.prototype.actEnd = function() {
     this.emit('act:end');
 };

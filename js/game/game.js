@@ -57,7 +57,11 @@ Game.prototype.createEntity = function(attributes, callback) {
 
 Game.prototype.getEntity = function(id, callback) {
     var entity = this._entitiesDict[id];
-    callback(null, entity);
+    if (!entity) {
+        callback({ error: 'entity is undefined', id: id });
+    } else {
+        callback(null, entity);
+    }
 };
 
 Game.prototype.getTile = function(coord, callback) {

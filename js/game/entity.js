@@ -51,4 +51,8 @@ GameEntity.prototype.damage = function(damage) {
     this.emit('damage', damage);
 };
 
+GameEntity.prototype.turn = function() {
+    this.emit('turn');
+};
+
 module.exports = GameEntity;

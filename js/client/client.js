@@ -25,11 +25,8 @@ Client.prototype.setScene = function(canvas, callback) {
         _this.setSpriteSheets(function(err, spriteSheets) {
 
             _this.setBackground(backgroundImage, function(err, backgroundLayer) {
-
                 _this.initializeLayers(function(err) {
-
                     _this.setTiles(_this.game.tiles, function() {
-
                         _this.setTimers(function(err) {
                             callback();
                         });
@@ -39,6 +36,7 @@ Client.prototype.setScene = function(canvas, callback) {
         });
     });
 };
+
 
 Client.prototype.setSpriteSheets = function(callback) {
     this.spriteSheets = {};
@@ -80,7 +78,8 @@ Client.prototype.createUnit = function(entity, callback) {
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
-    entity.on('act', function(command) {
+
+    entity.on('act', function unitAct(command) {
         var targetUnits = [];
         var tileSprites = [];
         // pool the sprite equivalent of the target entities
@@ -99,7 +98,10 @@ Client.prototype.unitEvents = function(unit, entity) {
             unit.removeAllListeners('act:end');
             unit.removeAllListeners('act');
             command.eachTarget(function(target) {
-                _this.getUnit(target.entity.id, function(err, targetUnit) {
+                var entity = target.entity;
+                var damage = target.damage;
+                _this.getUnit(entity.id, function(err, targetUnit) {
+                    _this.showDamage(targetUnit, damage);
                     if (target.entity.stats.get('health').value === 0) {
                         targetUnit.die();
                     } else {
@@ -127,17 +129,22 @@ Client.prototype.unitEvents = function(unit, entity) {
                 targetUnit.damageStart();
             });
         });
-
     });
 
-    entity.on('move:start', function(tile, prevTile) {
+    entity.on('turn', function unitTurn() {
+        _this.createTile('hex_active', entity.tile, function(err, tileSprite) {
+            tileSprite.regX = 46;
+        });
+    });
+
+    entity.on('move:start', function moveStart(tile, prevTile) {
         var tween = createjs.Tween.get(unit.container);
         var path = game.tiles.findPath(prevTile, tile);
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
         var tilePathObject = _this.generateTilePath(
             [prevTile].concat(path),
-            function(tileSprite, i, prevTileSprite) {
+            function(tileSprite, i, prevTileSprite, tile) {
                 if (i) { // Skip the 1st tile since it's the current
                     var walkDuration =
                         tileSprite.y !== (prevTileSprite ? prevTileSprite.y : tileSprite.y) ?
@@ -152,6 +159,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                             }
                             unit.prevX = tileSprite.x;
                             unit.prevY = tileSprite.y;
+                            unit.move(tile);
                         })
                         .to({
                             x: tileSprite.x,
@@ -183,6 +191,48 @@ Client.prototype.unitEvents = function(unit, entity) {
                     linePath.parent.removeChild(linePath);
                 });
             unit.moveEnd();
+        });
+    });
+
+    unit.on('move', function sortUnits(tile) {
+        var sortedUnits = _.sortBy(_this.game.entities, function(entity) {
+            return entity.tile.z;
+        });
+        var container = unit.container;
+        var entityIndex = sortedUnits.indexOf(entity);
+        var unitIndex = container.parent.getChildIndex(container);
+        if (entityIndex !== unitIndex) {
+            container.parent.setChildIndex(container, entityIndex);
+        }
+    });
+};
+
+Client.prototype.showDamage = function(unit, damage) {
+    var _this = this;
+    var spacing = 0;
+    _.each(String(damage).split(''), function(numeral, i) {
+        _this.createSprite('n-' + numeral, function(err, sprite) {
+            var posX = unit.container.x + spacing * 0.6;
+            var posY = unit.container.y - 50;
+            spacing += settings.numberSpacing[numeral];
+            sprite.x = posX;
+            sprite.y = posY - 50;
+            sprite.alpha = 0;
+            _this.layers.terrain.addChild(sprite);
+            createjs.Tween.get(sprite)
+                .wait(i * 80)
+                .to({
+                    y: posY,
+                    alpha: 1
+                }, 800, createjs.Ease.backInOut)
+                .wait(2000)
+                .to({
+                    y: posY + 20,
+                    alpha: 0
+                }, 500, createjs.Ease.quartIn)
+                .call(function() {
+                    sprite.parent.removeChild(sprite);
+                });
         });
     });
 };
@@ -247,7 +297,7 @@ Client.prototype.generateTilePath = function(tiles, callback) {
                     scaleY: 1
                 }, 350, createjs.Ease.backOut);
                 if (typeof callback === 'function') {
-                    callback(tileSprite, i, tileSprites[i-1]);
+                    callback(tileSprite, i, tileSprites[i-1], tile);
                 }
         });
     });
@@ -263,6 +313,7 @@ Client.prototype.moveUnit = function(unit, tile, callback) {
     var coord = HexUtil.coord(tile, true);
     unit.container.x = coord.x;
     unit.container.y = coord.y;
+    unit.emit('move', tile);
     callback(null, unit);
 };
 
@@ -291,7 +342,7 @@ Client.prototype.setTiles = function(tiles, callback) {
     var terrainWidth = HexUtil.WIDTH * settings.columns + (HexUtil.WIDTH * 0.5);
     var terrainHeight = HexUtil.HEIGHT * settings.rows;
     tiles.each(function(tile, i) {
-        _this.createSprite('hex_bg', function(err, tileSprite) {
+        _this.createSprite('hex_bg_inset', function(err, tileSprite) {
             HexUtil.position(tileSprite, tile);
             cacheContainer.addChild(tileSprite);
         });
@@ -300,6 +351,7 @@ Client.prototype.setTiles = function(tiles, callback) {
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
+    this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     callback(tiles);
 };
