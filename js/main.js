@@ -37,7 +37,8 @@ function bindSocket(socket, game) {
 
     socket.on('unit:turn', function unitTurn(data) {
         game.getEntity(data.id, function (err, entity) {
-            entity.turn();
+            game.setTurn(entity, function() {
+            });
         });
     });
 }
@@ -56,7 +57,7 @@ function test() {
             socket.emit('unit:spawn', {
                 id: 'vanguard',
                 type: 'vanguard',
-                x: 0,
+                x: 8,
                 y: 0
             });
         }, 250);
@@ -93,7 +94,7 @@ function test() {
     });
 
     socket.emit('test:spawn');
-    socket.emit('test:move');
+    socket.emit('test:turn');
 }
 
 function bindGame(game, client) {
@@ -101,6 +102,12 @@ function bindGame(game, client) {
         client.createUnit(entity, function(err, unit) {
         });
     });
+}
+
+function preventDraggingiOS() {
+    document.body.addEventListener('touchmove', function (ev) { 
+        ev.preventDefault();
+    }); 
 }
 
 window.addEventListener('load', function() {
@@ -112,6 +119,8 @@ window.addEventListener('load', function() {
             client.preloader.load(assetManifest, function(err) {
 
                 client.setScene(document.querySelector('canvas#game'), function(err) {
+
+                    preventDraggingiOS();
 
                     bindGame(game, client);
                     bindSocket(socket, game);

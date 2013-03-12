@@ -75,5 +75,4 @@ UnitSprite.prototype.die = function() {
 
 
 
-
 module.exports = UnitSprite;

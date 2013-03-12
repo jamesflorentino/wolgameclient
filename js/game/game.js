@@ -95,6 +95,14 @@ Game.prototype.createCommand = function(data, callback) {
     }
 };
 
+Game.prototype.setTurn = function(entity) {
+    if (this._entitiesDict[entity.id]) {
+        this.currentTurn = entity;
+        this.emit('turn', entity);
+        entity.turn();
+    }
+};
+
 Game.create = function(options, callback) {
     callback(null, new Game(options));
 };

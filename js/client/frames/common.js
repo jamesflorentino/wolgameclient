@@ -4,10 +4,10 @@ module.exports = {
 
     [85, 2, 92, 63], 
     [2, 2, 81, 72], 
+    [345, 64, 81, 60], 
+    [345, 2, 81, 60], 
     [262, 64, 81, 60], 
     [179, 64, 81, 60], 
-    [262, 2, 81, 60], 
-    [179, 2, 81, 60], 
     [2, 116, 66, 7], 
     [2, 103, 68, 11], 
     [94, 93, 21, 24], 
@@ -19,7 +19,8 @@ module.exports = {
     [139, 67, 20, 24], 
     [117, 93, 20, 24], 
     [25, 76, 21, 24], 
-    [117, 67, 20, 24]
+    [117, 67, 20, 24], 
+    [179, 2, 82, 60]
 ],
 "animations": {
     
@@ -40,10 +41,11 @@ module.exports = {
         "n-6":[14], 
         "n-7":[15], 
         "n-8":[16], 
-        "n-9":[17]
+        "n-9":[17], 
+        "unit-shadow":[18]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:c5607c6617017bdea57d821b2033733d$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:b10c5d2ac39c88d55b13792222a7182a$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 };

@@ -20,6 +20,7 @@ Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
     this.layers = {};
     this.stage = new createjs.Stage(canvas);
+    createjs.Touch.enable(this.stage);
     _this.resource('background', function(err, backgroundImage){ 
 
         _this.setSpriteSheets(function(err, spriteSheets) {
@@ -61,6 +62,7 @@ Client.prototype.createUnit = function(entity, callback) {
         unit = new UnitSpriteClass(entity);
         _this.addUnit(entity.id, unit, function() {
             _this.unitEvents(unit, entity);
+            _this.unitInput(unit, entity);
             if (entity.tile) {
                 _this.moveUnit(unit, entity.tile, function() {
                     callback(null, unit);
@@ -73,6 +75,18 @@ Client.prototype.createUnit = function(entity, callback) {
     } else {
         callback('Unit Class ' + entity.type + ' is not defined.');
     }
+};
+
+Client.prototype.unitInput = function(unit, entity) {
+    var _this = this;
+    this.createSprite('unit-shadow', function(err, shadow) {
+        shadow.regX = HexUtil.WIDTH * 0.5;
+        shadow.regY = HexUtil.HEIGHT * 0.5 - 2;
+        unit.container.addChildAt(shadow, 0);
+        shadow.addEventListener('click', function() {
+            unit.emit('input:select');
+        });
+    });
 };
 
 Client.prototype.unitEvents = function(unit, entity) {
@@ -205,6 +219,63 @@ Client.prototype.unitEvents = function(unit, entity) {
             container.parent.setChildIndex(container, entityIndex);
         }
     });
+
+    unit.on('input:select', function inputSelect() {
+        if (_this.game.currentTurn === entity) {
+            unit.emit('show:options');
+        } else {
+            console.log('nope');
+        }
+    });
+
+    unit.on('show:options', function() {
+        var moveTiles, actTiles;
+        if (unit.tileSprites) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tileSprites);
+            delete unit.tileSprites;
+        } else {
+            unit.tileSprites = [];
+            moveTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('range').value), function(tile) {
+                return tile.entities.length === 0;
+            });
+            actTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('reach').value), function(tile) {
+               return tile.entities.length > 0;
+            });
+            _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
+                unit.tileSprites.push(tileSprite);
+                tileSprite.set({
+                    scaleX: 0,
+                    scaleY: 0,
+                    alpha: 0
+                });
+                console.log(tile.radius);
+                createjs.Tween.get(tileSprite)
+                    //.wait(i * 10)
+                    .wait(tile.radius * 1000)
+                    .to({
+                        scaleX: 1,
+                        scaleY: 1,
+                        alpha: 1
+                    }, 550, createjs.Ease.backOut);
+            });
+            _this.createTiles('hex_target', actTiles, function(err, tileSprite, tile, i) {
+                unit.tileSprites.push(tileSprite);
+                tileSprite.set({
+                    scaleX: 0,
+                    scaleY: 0,
+                    alpha: 0
+                });
+                createjs.Tween.get(tileSprite)
+                .wait(i * 50)
+                .to({
+                    scaleX: 1,
+                    scaleY: 1,
+                    alpha: 1
+                }, 550, createjs.Ease.backOut);
+            });
+        }
+    });
+
 };
 
 Client.prototype.showDamage = function(unit, damage) {
@@ -238,16 +309,14 @@ Client.prototype.showDamage = function(unit, damage) {
 };
 
 Client.prototype.createTiles = function(name, tiles, callback) {
-    var _this = this, genTiles = [];
-    _.each(tiles, function(tile) {
+    var _this = this;
+    _.each(tiles, function(tile, i) {
         _this.createSprite(name, function(err, tileSprite) {
             HexUtil.position(tileSprite, tile);
             _this.layers.tiles.addChild(tileSprite);
-            genTiles.push(tile);
+            callback(null, tileSprite, tile, i);
         });
     });
-
-    callback(null, genTiles);
 };
 
 Client.prototype.createTile = function(name, tile, callback) {
@@ -270,6 +339,8 @@ Client.prototype.generateTilePath = function(tiles, callback) {
     var graphics = new createjs.Graphics();
     var tileSpriteCoordinates = HexUtil.coord(tiles[0]);
 
+    var linePath = new createjs.Shape(graphics);
+
     graphics
         .beginStroke('rgba(0,255,255,0.25)')
         .beginFill('cyan')
@@ -280,6 +351,10 @@ Client.prototype.generateTilePath = function(tiles, callback) {
             HexUtil.position(tileSprite, tile);
             _this.layers.tiles.addChild(tileSprite);
             tileSprites.push(tileSprite);
+            graphics
+                .lineTo(tileSprite.x, tileSprite.y)
+                .drawEllipse(tileSprite.x - 10, tileSprite.y - 5, 20, 10)
+                .moveTo(tileSprite.x, tileSprite.y);
             /** animate **/
             tileSprite.scaleX = 0;
             tileSprite.scaleY = 0;
@@ -287,10 +362,10 @@ Client.prototype.generateTilePath = function(tiles, callback) {
                 .get(tileSprite)
                 .wait(i * 80)
                 .call(function() {
-                    graphics
-                        .lineTo(tileSprite.x, tileSprite.y)
-                        .drawEllipse(tileSprite.x - 10, tileSprite.y - 5, 20, 10)
-                        .moveTo(tileSprite.x, tileSprite.y);
+                    //graphics
+                    //    .lineTo(tileSprite.x, tileSprite.y)
+                    //    .drawEllipse(tileSprite.x - 10, tileSprite.y - 5, 20, 10)
+                    //    .moveTo(tileSprite.x, tileSprite.y);
                 })
                 .to({
                     scaleX: 1,
@@ -301,7 +376,6 @@ Client.prototype.generateTilePath = function(tiles, callback) {
                 }
         });
     });
-    var linePath = new createjs.Shape(graphics);
     this.layers.tiles.addChild(linePath);
     return {
         tileSprites: tileSprites,

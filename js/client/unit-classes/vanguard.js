@@ -26,8 +26,6 @@ Vanguard.prototype.initialize = function(entity) {
     this.walkDuration = 1200;
     this.animation = new createjs.BitmapAnimation(spriteSheet);
     this.container.addChild(this.animation);
-    this.container.scaleY = 
-    this.container.scaleX = 1.2;
     this.animation.gotoAndPlay('idle');
     /** Sequence Events **/
 };
