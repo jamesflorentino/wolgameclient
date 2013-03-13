@@ -57,8 +57,15 @@ function test() {
             socket.emit('unit:spawn', {
                 id: 'vanguard',
                 type: 'vanguard',
-                x: 8,
-                y: 0
+                x: 1,
+                y: 1
+            });
+
+            socket.emit('unit:spawn', {
+                id: 'vanguard2',
+                type: 'vanguard',
+                x: 2,
+                y: 1
             });
         }, 250);
     });
@@ -67,7 +74,7 @@ function test() {
         setTimeout(function() {
             socket.emit('unit:move', {
                 id: 'vanguard',
-                x: 3,
+                x: 4,
                 y: 0
             });
         }, 250);
@@ -90,10 +97,20 @@ function test() {
             socket.emit('unit:turn', {
                 id: 'marine'
             });
-        }, 300);
+        }, 1000);
+    });
+
+    socket.on('input:movetile', function(data) {
+        setTimeout(function() {
+            socket.emit('unit:move', data);
+        }, 150);
+    });
+
+    socket.on('input:acttile', function(data) {
     });
 
     socket.emit('test:spawn');
+    //socket.emit('test:move');
     socket.emit('test:turn');
 }
 
@@ -102,12 +119,26 @@ function bindGame(game, client) {
         client.createUnit(entity, function(err, unit) {
         });
     });
+
+    client.on('input:movetile', function(data) {
+        socket.emit('input:movetile', {
+            id: data.entity.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
 }
 
 function preventDraggingiOS() {
     document.body.addEventListener('touchmove', function (ev) { 
         ev.preventDefault();
     }); 
+}
+
+function preventContextMenu() {
+    document.querySelector('canvas').addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
 }
 
 window.addEventListener('load', function() {
@@ -121,7 +152,7 @@ window.addEventListener('load', function() {
                 client.setScene(document.querySelector('canvas#game'), function(err) {
 
                     preventDraggingiOS();
-
+                    preventContextMenu();
                     bindGame(game, client);
                     bindSocket(socket, game);
                     test();

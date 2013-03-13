@@ -14,7 +14,7 @@ Marine.prototype = new UnitSprite();
 
 Marine.prototype.__super = UnitSprite.prototype;
 
-Marine.prototype.initialize = function(entity) {
+Marine.prototype.initialize = function() {
     var _this = this, animationCallbacks;
     this.__super.initialize.apply(this, arguments);
     this.walkDuration = 600;

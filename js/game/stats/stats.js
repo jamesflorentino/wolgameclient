@@ -71,7 +71,7 @@ Stats.prototype.set = function (stats) {
                 value = value.max;
             }
             if ((stat = this.get(key))) {
-                stat.setMax(value);
+                stat.setBase(value);
             } else {
                 this.add(new Stat(key, value));
             }

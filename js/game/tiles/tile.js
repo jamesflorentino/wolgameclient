@@ -53,7 +53,7 @@ Tile.prototype.occupy = function(entity) {
  * @param {Object} entity
  */
 Tile.prototype.vacate = function(entity) {
-    this.entities.splice(this.entities.indexOf(entity), 0);
+    this.entities.splice(this.entities.indexOf(entity), 1);
 };
 
 Tile.prototype.has = function(entity) {

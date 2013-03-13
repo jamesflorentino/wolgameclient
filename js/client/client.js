@@ -3,18 +3,23 @@ var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames');
 var settings = require('./settings');
+var EventEmitter = require('events').EventEmitter;
 var spriteClasses = {
     marine: require('./unit-classes/marine'),
     vanguard: require('./unit-classes/vanguard')
 };
 var UnitSprite = require('./unit-sprite');
 var _ = require('underscore');
+var Ease = createjs.Ease;
+var Tween = createjs.Tween;
 
 var Client = function(game) {
     this.game = game;
     this.units = {};
     this.preloader = new Preloader();
 };
+
+Client.prototype = new EventEmitter();
 
 Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
@@ -146,13 +151,29 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     entity.on('turn', function unitTurn() {
-        _this.createTile('hex_active', entity.tile, function(err, tileSprite) {
-            tileSprite.regX = 46;
+        _this.createSprite('hex_active', function(err, sprite) {
+            sprite.set({
+                regX: HexUtil.WIDTH * 0.5 + 5,
+                regY: HexUtil.HEIGHT * 0.5,
+                scaleX: 0,
+                scaleY: 0,
+                alpha: 0
+            })
+            unit.container.addChildAt(sprite, 0);
+            Tween.get(sprite)
+                .to({
+                    scaleX: 1,
+                    scaleY: 1,
+                    alpha: 1
+                }, 450, Ease.backInOut);
         });
+        //_this.createTile('hex_active', entity.tile, function(err, tileSprite) {
+        //    tileSprite.regX = 46;
+        //});
     });
 
     entity.on('move:start', function moveStart(tile, prevTile) {
-        var tween = createjs.Tween.get(unit.container);
+        var tween = Tween.get(unit.container);
         var path = game.tiles.findPath(prevTile, tile);
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
@@ -186,16 +207,16 @@ Client.prototype.unitEvents = function(unit, entity) {
             var linePath = tilePathObject.linePath;
             var tileSprites = tilePathObject.tileSprites;
             _.each(tileSprites, function(tileSprite, i) {
-                createjs.Tween.get(tileSprite).wait(i * 100)
+                Tween.get(tileSprite).wait(i * 100)
                 .to({
                     scaleX: 0,
                     scaleY: 0
-                }, 250, createjs.Ease.backIn)
+                }, 250, Ease.backIn)
                 .call(function() {
                     tileSprite.parent.removeChild(tileSprite);
                 });
             });
-            createjs.Tween
+            Tween
                 .get(linePath)
                 .wait(105 * tileSprites.length)
                 .to({
@@ -209,30 +230,33 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('move', function sortUnits(tile) {
-        var sortedUnits = _.sortBy(_this.game.entities, function(entity) {
-            return entity.tile.z;
+        var index = 0;
+        game.eachEntity(function(_entity, i) {
+            if (tile.z >= _entity.tile.z) {
+                index = i;
+            }
         });
         var container = unit.container;
-        var entityIndex = sortedUnits.indexOf(entity);
+        var entityIndex = index;
         var unitIndex = container.parent.getChildIndex(container);
+
         if (entityIndex !== unitIndex) {
-            container.parent.setChildIndex(container, entityIndex);
+            container.parent.addChildAt(container, entityIndex);
         }
     });
 
     unit.on('input:select', function inputSelect() {
         if (_this.game.currentTurn === entity) {
-            unit.emit('show:options');
+            unit.emit('show:movetiles');
         } else {
             console.log('nope');
         }
     });
 
-    unit.on('show:options', function() {
+    unit.on('show:movetiles', function() {
         var moveTiles, actTiles;
         if (unit.tileSprites) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tileSprites);
-            delete unit.tileSprites;
+            unit.emit('hide:all');
         } else {
             unit.tileSprites = [];
             moveTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('range').value), function(tile) {
@@ -241,41 +265,83 @@ Client.prototype.unitEvents = function(unit, entity) {
             actTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('reach').value), function(tile) {
                return tile.entities.length > 0;
             });
+
+            // show moveable tiles
             _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
+                tileSprite.addEventListener('click', function(e) {
+                    var tiles, pathSpriteObject, lastTile;
+                    tiles = [entity.tile].concat(game.tiles.findPath(entity.tile, tile));
+                    unit.emit('hide:pathtiles');
+                    pathSpriteObject = _this.generateTilePath(tiles, function(tileSprite, i, prevTileSprite, tile) {
+                    });
+                    lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
+                    lastTile.addEventListener('click', function() {
+                        _this.emit('input:movetile', {
+                            tile: tile,
+                            entity: entity
+                        });
+                        unit.emit('hide:all');
+                    });
+                    unit.tileSpritePaths = [].concat(pathSpriteObject.tileSprites).concat(pathSpriteObject.linePath);
+                });
                 unit.tileSprites.push(tileSprite);
                 tileSprite.set({
                     scaleX: 0,
                     scaleY: 0,
                     alpha: 0
                 });
-                console.log(tile.radius);
-                createjs.Tween.get(tileSprite)
-                    //.wait(i * 10)
-                    .wait(tile.radius * 1000)
+                Tween.get(tileSprite)
+                    .wait(i * 30)
                     .to({
                         scaleX: 1,
                         scaleY: 1,
                         alpha: 1
-                    }, 550, createjs.Ease.backOut);
+                    }, 400, Ease.backOut);
             });
+
+            // show attackable tiles
             _this.createTiles('hex_target', actTiles, function(err, tileSprite, tile, i) {
                 unit.tileSprites.push(tileSprite);
+                tileSprite.addEventListener('click', function() {
+                    _this.emit('input:acttile', function() {
+
+                    });
+                });
                 tileSprite.set({
                     scaleX: 0,
                     scaleY: 0,
                     alpha: 0
                 });
-                createjs.Tween.get(tileSprite)
+                Tween.get(tileSprite)
                 .wait(i * 50)
                 .to({
                     scaleX: 1,
                     scaleY: 1,
                     alpha: 1
-                }, 550, createjs.Ease.backOut);
+                }, 550, Ease.backOut);
             });
         }
     });
 
+    unit.on('hide:pathtiles', function() {
+        var tiles = unit.tileSpritePaths;
+        if (tiles) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, tiles);
+            delete unit.tileSpritePaths;
+        }
+    });
+
+    unit.on('hide:all', function() {
+        unit.emit('hide:pathtiles');
+        unit.emit('hide:movetiles');
+    });
+
+    unit.on('hide:movetiles', function() {
+        if (unit.tileSprites) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tileSprites);
+            delete unit.tileSprites;
+        }
+    });
 };
 
 Client.prototype.showDamage = function(unit, damage) {
@@ -290,17 +356,17 @@ Client.prototype.showDamage = function(unit, damage) {
             sprite.y = posY - 50;
             sprite.alpha = 0;
             _this.layers.terrain.addChild(sprite);
-            createjs.Tween.get(sprite)
+            Tween.get(sprite)
                 .wait(i * 80)
                 .to({
                     y: posY,
                     alpha: 1
-                }, 800, createjs.Ease.backInOut)
+                }, 800, Ease.backInOut)
                 .wait(2000)
                 .to({
                     y: posY + 20,
                     alpha: 0
-                }, 500, createjs.Ease.quartIn)
+                }, 500, Ease.quartIn)
                 .call(function() {
                     sprite.parent.removeChild(sprite);
                 });
@@ -358,19 +424,13 @@ Client.prototype.generateTilePath = function(tiles, callback) {
             /** animate **/
             tileSprite.scaleX = 0;
             tileSprite.scaleY = 0;
-            createjs.Tween
+            Tween
                 .get(tileSprite)
                 .wait(i * 80)
-                .call(function() {
-                    //graphics
-                    //    .lineTo(tileSprite.x, tileSprite.y)
-                    //    .drawEllipse(tileSprite.x - 10, tileSprite.y - 5, 20, 10)
-                    //    .moveTo(tileSprite.x, tileSprite.y);
-                })
                 .to({
                     scaleX: 1,
                     scaleY: 1
-                }, 350, createjs.Ease.backOut);
+                }, 350, Ease.backOut);
                 if (typeof callback === 'function') {
                     callback(tileSprite, i, tileSprites[i-1], tile);
                 }

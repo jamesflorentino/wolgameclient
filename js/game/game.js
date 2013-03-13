@@ -2,6 +2,7 @@ var HexTiles = require('./tiles/hextiles');
 var EventEmitter = require('events').EventEmitter;
 var GameEntity = require('./entity');
 var Command = require('./command');
+var unitsAttributes = require('./unit-settings');
 var _ = require('underscore');
 
 var Game = function() {
@@ -40,9 +41,17 @@ Game.prototype.addEntity = function(gameEntity) {
     }
 };
 
+Game.prototype.setEntityAttributes = function(entity) {
+    var attributes = unitsAttributes[entity.type];
+    if (attributes) {
+        entity.stats.set(attributes.stats);
+    }
+};
+
 Game.prototype.createEntity = function(attributes, callback) {
-    var entity = new GameEntity(attributes);
-    var tile;
+    var entity, tile;
+    entity = new GameEntity(attributes);
+    this.setEntityAttributes(entity);
     if (attributes.hasOwnProperty('x') && attributes.hasOwnProperty('y')) {
         tile = this.tiles.get(attributes.x, attributes.y);
         entity.move(tile, function() {
@@ -71,6 +80,10 @@ Game.prototype.getTile = function(coord, callback) {
     } else {
         callback('Tile is invalid');
     }
+};
+
+Game.prototype.eachEntity = function(callback) {
+    _.each(this.entities, callback);
 };
 
 Game.prototype.createCommand = function(data, callback) {
