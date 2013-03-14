@@ -202,5 +202,48 @@ HexTiles.prototype.neighbors = function(tile, radius) {
     return result;
 };
 
+HexTiles.prototype.findMovementCost = function(start, end) {
+    return end.entities.length || end.wall ? 10000 : end.val();
+};
+
+HexTiles.prototype.findRange = function(tile, radius) {
+    var open = [tile];
+    var closed = [];
+    var currTile, i;
+    var limit = radius;
+    var neighbors;
+    var i, _len, neighbor, newCost;
+
+    while(open.length > 0) {
+        currTile = open.pop();
+        closed.push(currTile);
+        if (currTile.cost < limit) {
+            neighbors = this.neighbors(currTile);
+            for(i = 0, _len = neighbors.length; i < _len; i++) {
+                neighbor = neighbors[i];
+                newCost = currTile.cost + this.findMovementCost(currTile, neighbor);
+                if (neighbor.cost === -1 || newCost < neighbor.cost) {
+                    neighbor.cost = newCost;
+                    if (open.indexOf(neighbor) === -1) {
+                        open.push(neighbor);
+                    }
+                }
+            }
+        }
+    }
+
+    var results = [];
+    for(i=0,_len=closed.length; i < _len; i++) {
+        currTile = closed[i];
+        if (currTile.cost < limit) {
+            if (results.indexOf(currTile) === -1) {
+                results.push(currTile);
+            }
+        }
+        currTile.cost = -1;
+    }
+    return results;
+};
+
 
 module.exports= HexTiles;

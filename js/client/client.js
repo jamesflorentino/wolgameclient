@@ -33,6 +33,9 @@ Client.prototype.setScene = function(canvas, callback) {
             _this.setBackground(backgroundImage, function(err, backgroundLayer) {
                 _this.initializeLayers(function(err) {
                     _this.setTiles(_this.game.tiles, function() {
+                        _this.game.on('tiles:config', function() {
+                            _this.setTiles(_this.game.tiles);
+                        });
                         _this.setTimers(function(err) {
                             callback();
                         });
@@ -42,7 +45,6 @@ Client.prototype.setScene = function(canvas, callback) {
         });
     });
 };
-
 
 Client.prototype.setSpriteSheets = function(callback) {
     this.spriteSheets = {};
@@ -154,12 +156,12 @@ Client.prototype.unitEvents = function(unit, entity) {
         _this.createSprite('hex_active', function(err, sprite) {
             sprite.name = 'indicator';
             sprite.set({
-                regX: HexUtil.WIDTH * 0.5 + 5,
+                regX: HexUtil.WIDTH * 0.5 + 6,
                 regY: HexUtil.HEIGHT * 0.5,
                 scaleX: 0,
                 scaleY: 0,
                 alpha: 0
-            })
+            });
             sprite.addEventListener('click', function() {
                 unit.emit('show:movetiles');
             });
@@ -274,13 +276,14 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('show:movetiles', function() {
-        var moveTiles, actTiles;
+        var moveTiles, actTiles, moveable;
         if (unit.tileSprites) {
             unit.emit('hide:all');
         } else {
             unit.tileSprites = [];
-            moveTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('range').value), function(tile) {
-                return tile.entities.length === 0;
+            movable = game.tiles.findRange(entity.tile, entity.stats.get('range').value);
+            moveTiles = _.filter(movable, function(tile) {
+                return tile.entities.length === 0 && !tile.wall;
             });
 
             // show moveable tiles
@@ -338,6 +341,7 @@ Client.prototype.unitEvents = function(unit, entity) {
             delete unit.tileSprites;
         }
     });
+
 };
 
 Client.prototype.showDamage = function(unit, damage) {
@@ -467,23 +471,31 @@ Client.prototype.getSpriteSheet = function(name, callback) {
 };
 
 Client.prototype.setTiles = function(tiles, callback) {
-    var _this = this;
-    var cacheContainer = new createjs.Container();
+    var _this = this, cacheContainer;
     var terrainWidth = HexUtil.WIDTH * settings.columns + (HexUtil.WIDTH * 0.5);
     var terrainHeight = HexUtil.HEIGHT * settings.rows;
+    if ((cacheContainer = this.layers.terrain.getChildByName('tileBackgrounds'))) {
+        cacheContainer.parent.removeChild(cacheContainer);
+    }
+    cacheContainer = new createjs.Container();
     tiles.each(function(tile, i) {
-        _this.createSprite('hex_bg_inset', function(err, tileSprite) {
-            HexUtil.position(tileSprite, tile);
-            cacheContainer.addChild(tileSprite);
-        });
+        if (!tile.wall) {
+            _this.createSprite('hex_bg_inset', function(err, tileSprite) {
+                HexUtil.position(tileSprite, tile);
+                cacheContainer.addChild(tileSprite);
+            });
+        }
     });
     cacheContainer.cache(0, 0, terrainWidth, terrainHeight);
+    cacheContainer.name = 'tileBackgrounds';
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
-    callback(tiles);
+    if (typeof callback === 'function') {
+        callback(tiles);
+    }
 };
 
 Client.prototype.render = function() {

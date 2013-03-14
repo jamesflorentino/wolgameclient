@@ -14,8 +14,13 @@ Tile.prototype.initialize = function(x, y, index) {
     this.f = 0;
     this.g = 0;
     this.h = 0;
+    this.cost = -1;
     this.parent = null;
     this.entities = [];
+};
+
+Tile.prototype.val = function() {
+    return this.entities.length || this.wall ? 1000 : 1;
 };
 
 /**

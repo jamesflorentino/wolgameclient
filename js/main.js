@@ -44,6 +44,15 @@ function gameRoutes(socket, game) {
         });
     });
 
+    socket.on('tiles:config', function(data) {
+        var tiles = data.tiles;
+        _.each(tiles, function(tileData) {
+            var tile = game.tiles.get(tileData.x, tileData.y);
+            tile.wall = tileData.wall;
+        });
+        game.emit('tiles:config');
+    });
+
 }
 
 function offlineRoutes(game) {
@@ -133,9 +142,23 @@ function offlineRoutes(game) {
         }, 2000);
     });
 
+    socket.on('test:tileconfig', function() {
+        socket.emit('tiles:config', {
+            tiles: [
+                { x: 2, y: 0, wall: true },
+                { x: 2, y: 2, wall: true },
+                { x: 2, y: 3, wall: true },
+                { x: 2, y: 4, wall: true },
+                { x: 2, y: 5, wall: true },
+                { x: 2, y: 6, wall: true }
+            ]
+        })
+    });
+
     socket.emit('test:spawn');
     //socket.emit('test:move');
     socket.emit('test:turn');
+    socket.emit('test:tileconfig');
     //socket.emit('test:endturn');
 }
 
@@ -178,6 +201,9 @@ function preventContextMenu() {
 window.addEventListener('load', function() {
 
     Game.create(settings, function(err, game) {
+        //var tile = game.tiles.get(0, 0);
+        //game.tiles.findRange(tile);
+        //return;
 
         Client.create(game, function(err, client) {
 

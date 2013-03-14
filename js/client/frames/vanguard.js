@@ -216,5 +216,5 @@ module.exports = {
         "die_end": {"frames": [201]},
         "defend_hold": {"frames": [149]}
     },
-    "images": ["/media/vanguard.png"]
+    "images": ["media/vanguard.png"]
 };

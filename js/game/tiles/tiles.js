@@ -110,7 +110,7 @@ Tiles.prototype.findPath = function(start, end) {
         neighbors = this.neighbors(currentNode);
         for(i=0, _len = neighbors.length; i < _len; i++) {
             neighbor = neighbors[i];
-            if (closedList.indexOf(neighbor) > -1 || neighbor.entities.length > 0) {
+            if (closedList.indexOf(neighbor) > -1 || neighbor.wall || neighbor.entities.length > 0) {
                 continue;
             }
             scoreG = currentNode.g + 1;

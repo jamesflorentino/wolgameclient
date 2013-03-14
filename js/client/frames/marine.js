@@ -125,5 +125,5 @@ module.exports = {
         "hit": {"frames": [74, 75, 76, 77, 78]},
         "defend_hold": {"frames": [73]}
     },
-    "images": ["/media/marine.png"]
+    "images": ["media/marine.png"]
 };
