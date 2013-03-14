@@ -7,10 +7,11 @@ var Client = require('./client/client');
 var assetManifest = require('./client/asset-manifest.js');
 var settings = require('./client/settings');
 var EventEmitter = require('events').EventEmitter;
+var _ = require('underscore');
 
 var socket = window.socket || new EventEmitter();
 
-function bindSocket(socket, game) {
+function gameRoutes(socket, game) {
     socket.on('unit:spawn', function(data) {
         game.createEntity(data, function(err, entity) {
         });
@@ -19,32 +20,49 @@ function bindSocket(socket, game) {
     socket.on('unit:move', function(data) {
         game.getEntity(data.id, function(err, entity) {
             // update the client first before moving the unit
-            game.getTile({ x: data.x, y: data.y }, function(err, tile) {
-                entity.move(tile, function() {
-                    console.log('unit moved completed');
-                });
-            });
+            var tile = game.tiles.get(data.x, data.y);
+            entity.move(tile);
         });
     });
 
     socket.on('unit:act', function unitAct(data) {
         game.getEntity(data.id, function getEntity(err, entity) {
-            game.createCommand(data, function(err, command) {
-                entity.act(command);
-            });
         });
     });
 
-    socket.on('unit:turn', function unitTurn(data) {
+    socket.on('unit:enable', function unitTurn(data) {
         game.getEntity(data.id, function (err, entity) {
-            game.setTurn(entity, function() {
-            });
+            entity.enable();
         });
     });
+
+
+    socket.on('unit:disable', function unitTurn(data) {
+        game.getEntity(data.id, function (err, entity) {
+            console.log('disable');
+            entity.disable();
+        });
+    });
+
 }
 
-function test() {
-    /** Test **/
+function offlineRoutes(game) {
+
+    socket.on('input:movetile', function(data) {
+        setTimeout(function() {
+            // TODO: Check if tile is a valid move
+            socket.emit('unit:move', data);
+        }, 150);
+    });
+
+    socket.on('input:acttile', function(data) {
+        setTimeout(function() {
+            game.getEntity(data.id, function(err, entity) {
+                game.act(entity, game.tiles.get(data.x, data.y));
+            });
+        }, 150);
+    });
+
     socket.on('test:spawn', function() {
         setTimeout(function() {
             socket.emit('unit:spawn', {
@@ -71,13 +89,20 @@ function test() {
     });
 
     socket.on('test:move', function() {
-        setTimeout(function() {
+        setInterval(function() {
+            socket.emit('unit:move', {
+                id: 'vanguard2',
+                x: Math.round(Math.random() * 5),
+                y: Math.round(Math.random() * 5)
+            });
+        }, 2000);
+        setInterval(function() {
             socket.emit('unit:move', {
                 id: 'vanguard',
-                x: 4,
-                y: 0
+                x: Math.round(Math.random() * 5),
+                y: Math.round(Math.random() * 5)
             });
-        }, 250);
+        }, 2000);
     });
 
     socket.on('test:attack', function() {
@@ -94,27 +119,28 @@ function test() {
 
     socket.on('test:turn', function() {
         setTimeout(function() {
-            socket.emit('unit:turn', {
+            socket.emit('unit:enable', {
                 id: 'marine'
             });
         }, 1000);
     });
 
-    socket.on('input:movetile', function(data) {
+    socket.on('test:endturn', function() {
         setTimeout(function() {
-            socket.emit('unit:move', data);
-        }, 150);
-    });
-
-    socket.on('input:acttile', function(data) {
+            socket.emit('unit:disable', {
+                id: 'marine'
+            });
+        }, 2000);
     });
 
     socket.emit('test:spawn');
     //socket.emit('test:move');
     socket.emit('test:turn');
+    //socket.emit('test:endturn');
 }
 
-function bindGame(game, client) {
+function initRoutes(game, client) {
+
     game.on('unit:spawn', function(entity) {
         client.createUnit(entity, function(err, unit) {
         });
@@ -122,6 +148,14 @@ function bindGame(game, client) {
 
     client.on('input:movetile', function(data) {
         socket.emit('input:movetile', {
+            id: data.entity.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
+
+    client.on('input:acttile', function(data) {
+        socket.emit('input:acttile', {
             id: data.entity.id,
             x: data.tile.x,
             y: data.tile.y
@@ -153,9 +187,9 @@ window.addEventListener('load', function() {
 
                     preventDraggingiOS();
                     preventContextMenu();
-                    bindGame(game, client);
-                    bindSocket(socket, game);
-                    test();
+                    initRoutes(game, client);
+                    gameRoutes(socket, game);
+                    offlineRoutes(game);
 
                 });
 

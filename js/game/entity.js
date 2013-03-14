@@ -1,6 +1,5 @@
 var Stats = require('./stats/stats');
 var EventEmitter = require('events').EventEmitter;
-var Command = require('./command');
 
 var GameEntity = function() {
     this.initialize.apply(this, arguments);
@@ -18,7 +17,7 @@ GameEntity.prototype.initialize = function(options) {
     this.stats.add('damage', 10);
     this.stats.add('defense', 10);
     this.stats.add('range', 1);
-    this.stats.add('reach', 1);
+    this.stats.add('splash', 0);
     this.tile = null;
 };
 
@@ -36,23 +35,19 @@ GameEntity.prototype.move = function(tile, callback) {
     }
 };
 
-GameEntity.prototype.act = function(command) {
-    var health;
-    if (command instanceof Command) {
-        command.eachTarget(function(target) {
-            target.entity.damage(target.damage);
-        });
-        this.emit('act', command);
-    }
-};
-
 GameEntity.prototype.damage = function(damage) {
     this.stats.get('health').reduce(damage);
     this.emit('damage', damage);
 };
 
-GameEntity.prototype.turn = function() {
-    this.emit('turn');
+GameEntity.prototype.enable = function() {
+    this.emit('enable');
 };
+
+GameEntity.prototype.disable = function() {
+    this.emit('disable');
+};
+
+
 
 module.exports = GameEntity;

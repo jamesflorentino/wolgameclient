@@ -1,10 +1,17 @@
 /*global createjs */
+
 var EventEmitter = require('events').EventEmitter;
 
 var UnitSprite = function(entity) {
 };
 
 UnitSprite.prototype = new EventEmitter();
+
+UnitSprite.prototype.entity = null;
+UnitSprite.prototype.walkDuration = null;
+UnitSprite.prototype.container = null;
+UnitSprite.prototype.endAnimations = null;
+UnitSprite.prototype.lastTile = null;
 
 UnitSprite.prototype.initialize = function(entity) {
     this.entity = entity;
@@ -36,6 +43,7 @@ UnitSprite.prototype.moveEnd = function() {
 };
 
 UnitSprite.prototype.move = function(tile) {
+    this.lastTile = tile;
     this.emit('move', tile);
 };
 

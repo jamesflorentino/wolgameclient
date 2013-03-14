@@ -178,19 +178,22 @@ HexTiles.prototype.neighbors = function(tile, radius) {
         centerY = tile.y;
         result = [];
         isOddRow = centerY % 2 > 0;
-        for (i = 1; 1 <= radius ? i <= radius : i >= radius; 1 <= radius ? i++ : i--) {
-            east = this.delta(centerX, centerY, this.EAST, isOddRow, i);
-            result = result.concat(east);
-            west = this.delta(centerX, centerY, this.WEST, isOddRow, i);
-            result = result.concat(west);
-            southEast = this.delta(centerX, centerY, this.SOUTHEAST, isOddRow, i);
-            result = result.concat(southEast);
-            northEast = this.delta(centerX, centerY, this.NORTHEAST, isOddRow, i);
-            result = result.concat(northEast);
-            southWest = this.delta(centerX, centerY, this.SOUTHWEST, isOddRow, i);
-            result = result.concat(southWest);
-            northWest = this.delta(centerX, centerY, this.NORTHWEST, isOddRow, i);
-            result = result.concat(northWest);
+        if (radius > 0) {
+            for (i = 1; 1 <= radius ? i <= radius : i >= radius; 1 <= radius ? i++ : i--) {
+                east = this.delta(centerX, centerY, this.EAST, isOddRow, i);
+                result = result.concat(east);
+                west = this.delta(centerX, centerY, this.WEST, isOddRow, i);
+                result = result.concat(west);
+                southEast = this.delta(centerX, centerY, this.SOUTHEAST, isOddRow, i);
+                result = result.concat(southEast);
+                northEast = this.delta(centerX, centerY, this.NORTHEAST, isOddRow, i);
+                result = result.concat(northEast);
+                southWest = this.delta(centerX, centerY, this.SOUTHWEST, isOddRow, i);
+                result = result.concat(southWest);
+                northWest = this.delta(centerX, centerY, this.NORTHWEST, isOddRow, i);
+                result = result.concat(northWest);
+            }
+
         }
     } else {
         throw(new Error('tile should be an instance of Tile'));

@@ -3,7 +3,12 @@ module.exports = {
         type: 'marine',
         stats: {
             range: 3,
-            reach: 4
+            splash: 1
+        },
+        commands: {
+            id: 'rifleshot',
+            reach: 4,
+            damage: 50
         }
     }
 };

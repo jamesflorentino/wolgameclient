@@ -83,15 +83,15 @@ Client.prototype.createUnit = function(entity, callback) {
 };
 
 Client.prototype.unitInput = function(unit, entity) {
-    var _this = this;
-    this.createSprite('unit-shadow', function(err, shadow) {
-        shadow.regX = HexUtil.WIDTH * 0.5;
-        shadow.regY = HexUtil.HEIGHT * 0.5 - 2;
-        unit.container.addChildAt(shadow, 0);
-        shadow.addEventListener('click', function() {
-            unit.emit('input:select');
-        });
-    });
+    //var _this = this;
+    //this.createSprite('unit-shadow', function(err, shadow) {
+    //    shadow.regX = HexUtil.WIDTH * 0.5;
+    //    shadow.regY = HexUtil.HEIGHT * 0.5 - 2;
+    //    unit.container.addChildAt(shadow, 0);
+    //    shadow.addEventListener('click', function() {
+    //        unit.emit('input:select');
+    //    });
+    //});
 };
 
 Client.prototype.unitEvents = function(unit, entity) {
@@ -150,8 +150,9 @@ Client.prototype.unitEvents = function(unit, entity) {
         });
     });
 
-    entity.on('turn', function unitTurn() {
+    entity.on('enable', function() {
         _this.createSprite('hex_active', function(err, sprite) {
+            sprite.name = 'indicator';
             sprite.set({
                 regX: HexUtil.WIDTH * 0.5 + 5,
                 regY: HexUtil.HEIGHT * 0.5,
@@ -159,6 +160,9 @@ Client.prototype.unitEvents = function(unit, entity) {
                 scaleY: 0,
                 alpha: 0
             })
+            sprite.addEventListener('click', function() {
+                unit.emit('show:movetiles');
+            });
             unit.container.addChildAt(sprite, 0);
             Tween.get(sprite)
                 .to({
@@ -167,17 +171,29 @@ Client.prototype.unitEvents = function(unit, entity) {
                     alpha: 1
                 }, 450, Ease.backInOut);
         });
-        //_this.createTile('hex_active', entity.tile, function(err, tileSprite) {
-        //    tileSprite.regX = 46;
-        //});
+    });
+
+    entity.on('disable', function() {
+        var sprite = unit.container.getChildByName('indicator');
+        if (sprite) {
+            sprite.parent.removeChild(sprite);
+        }
     });
 
     entity.on('move:start', function moveStart(tile, prevTile) {
-        var tween = Tween.get(unit.container);
-        var path = game.tiles.findPath(prevTile, tile);
+        var tween;
+        var path;
+        prevTile = unit.lastTile;
+        path = game.tiles.findPath(prevTile, tile);
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
-        var tilePathObject = _this.generateTilePath(
+        Tween.removeTweens(unit.container);
+        tween = Tween.get(unit.container);
+        if (unit.tilePathObject) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
+            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
+        }
+        unit.tilePathObject = _this.generateTilePath(
             [prevTile].concat(path),
             function(tileSprite, i, prevTileSprite, tile) {
                 if (i) { // Skip the 1st tile since it's the current
@@ -204,8 +220,8 @@ Client.prototype.unitEvents = function(unit, entity) {
             }
         );
         tween.call(function() {
-            var linePath = tilePathObject.linePath;
-            var tileSprites = tilePathObject.tileSprites;
+            var linePath = unit.tilePathObject.linePath;
+            var tileSprites = unit.tilePathObject.tileSprites;
             _.each(tileSprites, function(tileSprite, i) {
                 Tween.get(tileSprite).wait(i * 100)
                 .to({
@@ -213,7 +229,9 @@ Client.prototype.unitEvents = function(unit, entity) {
                     scaleY: 0
                 }, 250, Ease.backIn)
                 .call(function() {
-                    tileSprite.parent.removeChild(tileSprite);
+                    if (tileSprite.parent) {
+                        tileSprite.parent.removeChild(tileSprite);
+                    }
                 });
             });
             Tween
@@ -223,7 +241,9 @@ Client.prototype.unitEvents = function(unit, entity) {
                     alpha: 0
                 }, 150)
                 .call(function() {
-                    linePath.parent.removeChild(linePath);
+                    if (linePath.parent) {
+                        linePath.parent.removeChild(linePath);
+                    }
                 });
             unit.moveEnd();
         });
@@ -231,11 +251,11 @@ Client.prototype.unitEvents = function(unit, entity) {
 
     unit.on('move', function sortUnits(tile) {
         var index = 0;
-        game.eachEntity(function(_entity, i) {
-            if (tile.z >= _entity.tile.z) {
+        for(var i=0, _len = game.entities.length; i < _len; i++) {
+            if (tile.z >= game.entities[i].tile.z) {
                 index = i;
             }
-        });
+        }
         var container = unit.container;
         var entityIndex = index;
         var unitIndex = container.parent.getChildIndex(container);
@@ -261,9 +281,6 @@ Client.prototype.unitEvents = function(unit, entity) {
             unit.tileSprites = [];
             moveTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('range').value), function(tile) {
                 return tile.entities.length === 0;
-            });
-            actTiles = _.filter(game.tiles.neighbors(entity.tile, entity.stats.get('reach').value), function(tile) {
-               return tile.entities.length > 0;
             });
 
             // show moveable tiles
@@ -291,35 +308,14 @@ Client.prototype.unitEvents = function(unit, entity) {
                     alpha: 0
                 });
                 Tween.get(tileSprite)
-                    .wait(i * 30)
+                    .wait(i * 10)
                     .to({
                         scaleX: 1,
                         scaleY: 1,
                         alpha: 1
-                    }, 400, Ease.backOut);
+                    }, 200, Ease.backOut);
             });
 
-            // show attackable tiles
-            _this.createTiles('hex_target', actTiles, function(err, tileSprite, tile, i) {
-                unit.tileSprites.push(tileSprite);
-                tileSprite.addEventListener('click', function() {
-                    _this.emit('input:acttile', function() {
-
-                    });
-                });
-                tileSprite.set({
-                    scaleX: 0,
-                    scaleY: 0,
-                    alpha: 0
-                });
-                Tween.get(tileSprite)
-                .wait(i * 50)
-                .to({
-                    scaleX: 1,
-                    scaleY: 1,
-                    alpha: 1
-                }, 550, Ease.backOut);
-            });
         }
     });
 
@@ -426,11 +422,11 @@ Client.prototype.generateTilePath = function(tiles, callback) {
             tileSprite.scaleY = 0;
             Tween
                 .get(tileSprite)
-                .wait(i * 80)
+                .wait(i * 40)
                 .to({
                     scaleX: 1,
                     scaleY: 1
-                }, 350, Ease.backOut);
+                }, 200, Ease.backOut);
                 if (typeof callback === 'function') {
                     callback(tileSprite, i, tileSprites[i-1], tile);
                 }
@@ -447,7 +443,7 @@ Client.prototype.moveUnit = function(unit, tile, callback) {
     var coord = HexUtil.coord(tile, true);
     unit.container.x = coord.x;
     unit.container.y = coord.y;
-    unit.emit('move', tile);
+    unit.move(tile);
     callback(null, unit);
 };
 
