@@ -15,10 +15,10 @@ Command.prototype.id = null;
 Command.prototype.damage = null;
 
 /**
- * How far the command can reach
+ * How far the command can range
  * @type {Number}
  */
-Command.prototype.reach = null;
+Command.prototype.range = null;
 
 /**
  * The range of the command's affected area
@@ -29,16 +29,22 @@ Command.prototype.splash = null;
 /**
  * @param {String} id
  * @param {Number} damage
- * @param {Number} reach
+ * @param {Number} range
  * @param {Object} [options]
  */
-Command.prototype.initialize = function(id, damage, reach, options) {
+Command.prototype.initialize = function(id, options) {
+    if (id === null) {
+        throw new Error('command id is required');
+    }
     this.id = id;
-    this.damage = damage;
-    this.reach = reach;
+    this.cooldown = 0;
+    this.damage = 0;
+    this.range = 0;
     if (typeof options === 'object') {
-        if (options.hasOwnProperty('splash')) {
-            this.splash = options.splash;
+        for(var key in options) {
+            if (options.hasOwnProperty(key)) {
+                this[key] = options[key];
+            }
         }
     }
 };

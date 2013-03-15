@@ -1,4 +1,5 @@
 var Stats = require('./stats/stats');
+var Commands = require('./commands/commands');
 var EventEmitter = require('events').EventEmitter;
 
 var GameEntity = function() {
@@ -18,6 +19,8 @@ GameEntity.prototype.initialize = function(options) {
     this.stats.add('defense', 10);
     this.stats.add('range', 1);
     this.stats.add('splash', 0);
+
+    this.commands = new Commands();
     this.tile = null;
 };
 
@@ -25,13 +28,13 @@ GameEntity.prototype.move = function(tile, callback) {
     var prevTile = this.tile;
     this.prevTile = this.tile;
     this.tile = tile;
-    this.emit('move:start', tile, prevTile);
+    this.emit('move:start', tile);
     if (prevTile) {
         prevTile.vacate(this);
     }
     tile.occupy(this);
     if (typeof callback === 'function') {
-        callback(tile, prevTile);
+        callback(tile);
     }
 };
 

@@ -4,10 +4,20 @@
         <meta charset="utf-8">
         <title>WOL Game Client</title>
         <link rel="stylesheet" href="css/normalize.css">
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <style type="text/css">
             body{ background: #111; overflow: hidden; }
             .canvas { border: 1px solid #555; }
             .center { text-align: center; margin-top: 0; }
+            @media screen
+            and (max-device-width: 480px) 
+            and (max-device-width: 320px)
+            {
+                canvas {
+                    width: 100% !important;
+                    height: 100% !important;
+                }
+            }
         </style>
     </head>
     <body>

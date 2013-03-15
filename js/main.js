@@ -32,6 +32,7 @@ function gameRoutes(socket, game) {
 
     socket.on('unit:enable', function unitTurn(data) {
         game.getEntity(data.id, function (err, entity) {
+            game.setTurn(entity);
             entity.enable();
         });
     });
@@ -39,7 +40,7 @@ function gameRoutes(socket, game) {
 
     socket.on('unit:disable', function unitTurn(data) {
         game.getEntity(data.id, function (err, entity) {
-            console.log('disable');
+            game.endTurn(entity);
             entity.disable();
         });
     });
@@ -190,6 +191,13 @@ function preventDraggingiOS() {
     document.body.addEventListener('touchmove', function (ev) { 
         ev.preventDefault();
     }); 
+    window.addEventListener("load",function() {
+            // Set a timeout...
+        setTimeout(function(){
+            // Hide the address bar!
+            window.scrollTo(0, 1);
+        }, 0);
+    });
 }
 
 function preventContextMenu() {

@@ -6,9 +6,12 @@ module.exports = {
             splash: 1
         },
         commands: {
-            id: 'rifleshot',
-            reach: 4,
-            damage: 50
+            rifleshot: {
+                damage: 10,
+                range: 4,
+                cooldown: 0
+            }
         }
+
     }
 };
