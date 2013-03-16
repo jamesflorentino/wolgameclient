@@ -14,7 +14,6 @@ UnitSprite.prototype.endAnimations = null;
 UnitSprite.prototype.lastTile = null;
 
 UnitSprite.prototype.initialize = function(entity) {
-    this.entity = entity;
     this.walkDuration = 1000;
     this.container = new createjs.Container();
     this.endAnimations = new EventEmitter();

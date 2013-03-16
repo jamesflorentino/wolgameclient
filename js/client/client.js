@@ -67,6 +67,7 @@ Client.prototype.createUnit = function(entity, callback) {
     UnitSpriteClass = spriteClasses[entity.type];
     if (UnitSpriteClass) {
         unit = new UnitSpriteClass(entity);
+        unit.id = entity.id;
         _this.addUnit(entity.id, unit, function() {
             _this.unitEvents(unit, entity);
             _this.unitInput(unit, entity);
@@ -150,6 +151,10 @@ Client.prototype.unitEvents = function(unit, entity) {
                 targetUnit.damageStart();
             });
         });
+    });
+
+    entity.on('die', function() {
+        _this.removeUnit(unit);
     });
 
     entity.on('enable', function() {
@@ -293,6 +298,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                 tileSprite.addEventListener('click', function(e) {
                     var tiles, pathSpriteObject, lastTile;
                     tiles = [entity.tile].concat(game.tiles.findPath(entity.tile, tile));
+                    unit.emit('hide:targettiles');
                     unit.emit('hide:pathtiles');
                     pathSpriteObject = _this.generateTilePath(tiles);
                     lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
@@ -336,21 +342,36 @@ Client.prototype.unitEvents = function(unit, entity) {
                 });
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
+                    var targetUnit;
+                    var targetEntity;
+                    targetEntity = tile.entities[0];
+                    if (targetEntity) {
+                        targetUnit = _this.getUnit(targetEntity.id);
+                        if (targetUnit) {
+                            targetUnit.container.addChildAt(tileSprite, 0);
+                        }
+                    }
                     unit.tileSpritesTarget.push(tileSprite);
                     tileSprite.addEventListener('click', function(e) {
-                        unit.emit('hide:targettiles');
                         var tiles = [tile];
                         var tileSprites = [];
+                        unit.emit('hide:pathtiles');
+                        unit.emit('hide:targettiles');
                         _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
+                            targetUnit.container.addChildAt(tileSprite, 1);
                             tileSprites.push(tileSprite);
                             tileSprite.addEventListener('click', function() { 
                                 _this.emit('input:acttile', {
                                     tile: tile,
                                     entity: entity,
+                                    target: targetEntity,
                                     command: command
                                 });
+                                unit.emit('hide:all');
                             });
                             tileSprite.set({
+                                x: 0,
+                                y: 0,
                                 scaleX: 0,
                                 scaleY: 0,
                                 alpha: 0
@@ -367,6 +388,8 @@ Client.prototype.unitEvents = function(unit, entity) {
                         unit.tileSpritesTargetMark = [].concat(tileSprites);
                     });
                     tileSprite.set({
+                        x: 0,
+                        y: 0,
                         scaleX: 0,
                         scaleY: 0,
                         alpha: 0
@@ -393,7 +416,9 @@ Client.prototype.unitEvents = function(unit, entity) {
     unit.on('hide:acttiles', function() {
         var tiles = unit.tileSpritesTarget;
         if (tiles) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, tiles);
+            _.each(tiles, function(sprite) {
+                sprite.parent.removeChild(sprite);
+            });
             delete unit.tileSpritesTarget;
         }
     });
@@ -401,7 +426,9 @@ Client.prototype.unitEvents = function(unit, entity) {
     unit.on('hide:targettiles', function() {
         var tiles = unit.tileSpritesTargetMark;
         if (tiles) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, tiles);
+            _.each(tiles, function(sprite) {
+                sprite.parent.removeChild(sprite);
+            });
             delete unit.tileSpritesTargetMark;
         }
     });
@@ -535,10 +562,17 @@ Client.prototype.addUnit = function(id, unit, callback) {
     callback(null, unit);
 };
 
+Client.prototype.removeUnit = function(unit) {
+    delete this.units[unit.id];
+    this.layers.units.removeChild(unit.container);
+};
+
 Client.prototype.getUnit = function(id, callback) {
     var unit = this.units[id];
     if (unit) {
-        callback(null, unit);
+        if (typeof callback === 'function') {
+            callback(null, unit);
+        }
     }
     return unit;
 };

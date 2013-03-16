@@ -40,6 +40,7 @@ Command.prototype.initialize = function(id, options) {
     this.cooldown = 0;
     this.damage = 0;
     this.range = 0;
+    this.splash = 0;
     if (typeof options === 'object') {
         for(var key in options) {
             if (options.hasOwnProperty(key)) {

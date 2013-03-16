@@ -103,4 +103,8 @@ Stat.prototype.ratio = function() {
     return this.value / this.max;
 };
 
+Stat.prototype.val = function() {
+    return this.value;
+};
+
 module.exports = Stat;

@@ -2,47 +2,29 @@ var HexTiles = require('./tiles/hextiles');
 var EventEmitter = require('events').EventEmitter;
 var GameEntity = require('./entity');
 var Tile = require('./tiles/tile');
-var unitsAttributes = require('./unit-settings');
 var _ = require('underscore');
-
-var setEntityAttributes = function(entity) {
-    var attributes = unitsAttributes[entity.type];
-    if (typeof attributes === 'object') {
-        if (attributes.hasOwnProperty('stats')) {
-            entity.stats.set(attributes.stats);
-        }
-        if (attributes.hasOwnProperty('commands')) {
-            entity.commands.set(attributes.commands);
-        }
-    }
-};
 
 var Game = function() {
     this.initialize.apply(this, arguments);
 };
 
+Game.rows = 8;
+Game.columns = 10;
+
 Game.prototype = new EventEmitter();
 
-Game.prototype.initialize = function(options) {
-    var columns = 0, rows = 0;
-    if (typeof options === 'object') {
-        if (options.columns) {
-            columns = options.columns;
-        }
-        if (options.rows) {
-            rows = options.rows;
-        }
-    }
+Game.prototype.initialize = function() {
     this.entities = [];
     this._entitiesDict = {};
-    this.tiles = new HexTiles(columns, rows);
+    this.tiles = new HexTiles(Game.columns, Game.rows);
 };
 
-Game.prototype.addEntity = function(gameEntity) {
-    if (gameEntity instanceof GameEntity) {
-        if (gameEntity.id) {
-            this._entitiesDict[gameEntity.id] = gameEntity;
-            this.entities.push(gameEntity);
+Game.prototype.addEntity = function(entity) {
+    if (entity instanceof GameEntity) {
+        if (entity.id) {
+            this._entitiesDict[entity.id] = entity;
+            this.entities.push(entity);
+            this.emit('unit:add', entity);
         } else {
             throw(new Error('GameEntity requires an ID'));
         }
@@ -51,29 +33,33 @@ Game.prototype.addEntity = function(gameEntity) {
     }
 };
 
-Game.prototype.createEntity = function(attributes, callback) {
-    var entity, tile;
-    entity = new GameEntity(attributes);
-    setEntityAttributes(entity);
-    if (attributes.hasOwnProperty('x') && attributes.hasOwnProperty('y')) {
-        tile = this.tiles.get(attributes.x, attributes.y);
-        entity.move(tile, function() {
-            callback(null, entity);
-        });
-    } else {
-        callback(null, entity);
+Game.prototype.removeEntity = function(entity) {
+    var tile = entity.tile;
+    tile.vacate(entity);
+    delete this._entitiesDict[entity.id];
+    this.entities.splice(this.entities.indexOf(entity), 1);
+    this.emit('unit:remove', entity);
+    entity.die();
+};
+
+Game.prototype.createEntity = function(id, callback) {
+    var entity = GameEntity.create(id);
+    if (typeof callback === 'function') {
+        callback(entity);
     }
-    this.addEntity(entity);
-    this.emit('unit:spawn',  entity);
+    return entity;
 };
 
 Game.prototype.getEntity = function(id, callback) {
     var entity = this._entitiesDict[id];
-    if (!entity) {
-        callback({ error: 'entity is undefined', id: id });
-    } else {
-        callback(null, entity);
+
+    if (typeof callback === 'function') {
+        if (entity) {
+            callback(null, entity);
+        }
     }
+
+    return entity;
 };
 
 Game.prototype.eachEntity = function(callback) {
@@ -94,12 +80,17 @@ Game.prototype.setTurn = function(entity) {
     }
 };
 
-Game.prototype.endTurn = function(entity) {
+Game.prototype.endTurn = function() {
     this.currentTurn = null;
 };
 
-Game.create = function(options, callback) {
-    callback(null, new Game(options));
+Game.create = function(callback) {
+    var game = new Game();
+    if (typeof callback === 'function') {
+        callback(null, game);
+    }
+    return game;
 };
+
 
 module.exports = Game;
