@@ -4,6 +4,7 @@ var frameData = require('../frames/vanguard');
 var spriteSheet = new createjs.SpriteSheet(frameData);
 // loop back to idle
 spriteSheet.getAnimation('defend_end').next =
+spriteSheet.getAnimation('attack').next =
 spriteSheet.getAnimation('move_end').next = 'idle';
 // do not loop
 spriteSheet.getAnimation('die_end').next =
@@ -49,6 +50,20 @@ Vanguard.prototype.damageEnd = function() {
 Vanguard.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
 };
+
+
+Vanguard.prototype.actStart = function() {
+    var _this = this;
+    this.animation.gotoAndPlay('attack');
+    var act = this.act.bind(this);
+    createjs.Tween.get(this)
+        .wait(1000).call(act)
+        .wait(1000).call(act)
+        .wait(300).call(function() {
+            _this.actEnd();
+        })
+        ;
+}
 
 Vanguard.prototype.die = function() {
     this.animation.gotoAndPlay('die_start');

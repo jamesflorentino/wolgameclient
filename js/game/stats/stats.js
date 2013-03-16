@@ -34,26 +34,10 @@ Stats.prototype.initialize = function(stats) {
  * @param {Stat|Object} data
  * @param {String} data2
  */
-Stats.prototype.add = function(data, data2) {
-    var stat;
-    if (data instanceof Stat) {
-        stat = data;
-    } else if (typeof data === 'object') {
-        // { name: 'health', value; 100 }
-        if (typeof data.name === 'string' && typeof data.value === 'number') {
-            stat = new Stat(data.name, data.value);
-        } else {
-            // {health: 100}
-            this.set(data);
-        }
-    } else if (typeof data === 'string' && typeof data2 === 'number') {
-        // health, 100
-        stat = new Stat(data, data2);
-    }
-    if(stat) {
-        this.list.push(stat);
-        this._dictionary[stat.name] = stat;
-    }
+Stats.prototype.add = function(name, val, max) {
+    var stat = new Stat(name, val, max);
+    this.list.push(stat);
+    this._dictionary[stat.name] = stat;
 };
 
 /**
@@ -84,10 +68,13 @@ Stats.prototype.set = function (stats) {
  * @method toJSON
  * @return {Object}
  */
-Stats.prototype.toJSON = function() {
+Stats.prototype.json = function() {
     var attr = {};
     for(var i=0; i<this.list.length;i++) {
         var stat = this.list[i];
+        if (stat.name === 'null') {
+            continue;
+        }
         attr[stat.name] = {
             value: stat.value,
             max: stat.max
@@ -108,6 +95,19 @@ Stats.prototype.get = function(name) {
         stat = this.get('null');
     }
     return stat;
+};
+
+Stats.prototype.each = function(fn) {
+    var stat;
+    for (var i=0; i < this.list.length; i++) {
+        stat = this.list[i];
+        if (stat.name === 'null') {
+            continue;
+        }
+        if (fn(stat, i) === false) {
+            break;
+        }
+    };
 };
 
 module.exports = Stats;

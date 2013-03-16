@@ -12,15 +12,15 @@ GameEntity.prototype.id = null;
 GameEntity.prototype.type = null;
 GameEntity.prototype.stats = null;
 GameEntity.prototype.commands = null;
+GameEntity.prototype.state = null;
 
 GameEntity.prototype.initialize = function(id) {
     this.id = id;
     this.stats = new Stats();
-    this.stats.add('health', 100);
-    this.stats.add('damage', 10);
-    this.stats.add('defense', 10);
-    this.stats.add('range', 1);
-    this.stats.add('splash', 0);
+    this.stats.add('health', 100, 100);
+    this.stats.add('damage', 10, 10);
+    this.stats.add('defense', 10, 10);
+    this.stats.add('range', 1, 1);
     this.commands = new Commands();
     this.tile = null;
 };
@@ -36,18 +36,20 @@ GameEntity.prototype.set = function(attributes) {
     }
 };
 
-GameEntity.prototype.move = function(tile, callback) {
+GameEntity.prototype.move = function(tile, sync) {
     var prevTile = this.tile;
     this.prevTile = this.tile;
     this.tile = tile;
-    this.emit('move:start', tile);
+	if (sync) {
+		this.emit('move:update', tile);
+	} else {
+		this.emit('move:start', tile);
+	}
+
     if (prevTile) {
         prevTile.vacate(this);
     }
     tile.occupy(this);
-    if (typeof callback === 'function') {
-        callback(tile);
-    }
 };
 
 GameEntity.prototype.damage = function(damage) {
@@ -67,10 +69,22 @@ GameEntity.prototype.die = function() {
     this.emit('die');
 };
 
-GameEntity.prototype.calculateDamage = function(inputDamage, options) {
-    var outputDamage = inputDamage + 0;
-    var health = this.stats.get('health').val();
-    return outputDamage;
+GameEntity.prototype.act = function(target, command) {
+    var health = target.stats.get('health').val();
+    var defense = target.stats.get('defense').val();
+    var damage = Math.max(0, command.damage - defense);
+    var status;
+    if (health - damage < 0) {
+        status = 'death';
+    }
+	this.emit('act', {
+		target: target,
+		command: command
+	});
+    return {
+        damage: damage,
+        status: status
+    };
 };
 
 GameEntity.create = function(id, fn) {

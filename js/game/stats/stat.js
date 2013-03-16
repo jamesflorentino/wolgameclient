@@ -23,9 +23,10 @@ Stat.prototype.max = null;
  * @param {string} name
  * @param {number} value
  */
-Stat.prototype.initialize = function(name, value) {
+Stat.prototype.initialize = function(name, value, max) {
     this.name = name;
-    this.value = this.max = value;
+    this.value = typeof value === 'number' ? value : 0;
+    this.max = typeof max === 'number' ? max : this.value;
 };
 
 /**

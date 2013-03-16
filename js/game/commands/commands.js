@@ -13,6 +13,15 @@ Commands.prototype.initialize = function(data) {
     this.__super.initialize.apply(this);
 };
 
+Commands.prototype.get = function(id, fn) {
+    var command = this.__super.get.apply(this, arguments);
+    if (typeof fn === 'function') {
+        if (command) {
+            fn(command);
+        }
+    }
+    return command;
+};
 
 Commands.prototype.set = function(data) {
     if (typeof data === 'object') {

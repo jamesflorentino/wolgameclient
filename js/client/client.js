@@ -2,21 +2,88 @@
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames');
+var Game = require('../game/game');
 var settings = require('./settings');
 var EventEmitter = require('events').EventEmitter;
 var spriteClasses = {
     marine: require('./unit-classes/marine'),
     vanguard: require('./unit-classes/vanguard')
 };
-var UnitSprite = require('./unit-sprite');
 var _ = require('underscore');
 var Ease = createjs.Ease;
 var Tween = createjs.Tween;
 
 var Client = function(game) {
+    var _this = this;
     this.game = game;
     this.units = {};
     this.preloader = new Preloader();
+
+    this.game.on('unit:add', function(entity) {
+        _this.createUnit(entity, function(unit) {
+            unit.container.addEventListener('click', function() {
+                _this.emit('unit:info', entity);
+            });
+        });
+    });
+
+    this.game.on('unit:act', function (data) {
+        _this.getUnit(data.id, function(unit) {
+            var targets= [];
+            var tileSprites = [];
+            // Make sure they're all clean
+            unit.removeAllListeners('act:end');
+            unit.removeAllListeners('act');
+
+            unit.on('act:end', function() {
+                unit.removeAllListeners('act:end');
+                unit.removeAllListeners('act');
+                _.each(targets, function(target) {
+                    var entity = target.entity;
+                    var unit = target.unit;
+                    var damage = target.damage;
+                    var health = entity.stats.get('health').val();
+                    _this.showDamage(unit, damage);
+                    if (health) {
+                        unit.damageEnd();
+                    } else {
+                        unit.die();
+                    }
+                });
+                _.each(tileSprites, function(tileSprite) {
+                    tileSprite.parent.removeChild(tileSprite);
+                });
+            });
+
+            unit.on('act', function() {
+                _.each(targets, function(target) {
+                    var unit = target.unit;
+                    unit.damage();
+                });
+            });
+
+            _.each(data.targets, function(obj) {
+                var id = obj.id;
+                var damage = obj.damage;
+                _this.game.getEntity(id, function(entity) {
+                    _this.getUnit(id, function(unit) {
+                        _this.createTile('hex_target', entity.tile, function(tileSprite) {
+                            targets.push({
+                                unit: unit,
+                                entity: entity,
+                                damage: damage
+                            });
+                            tileSprites.push(tileSprite);
+                            unit.damageStart();
+                        });
+                    });
+                });
+            });
+
+
+            unit.actStart();
+        });
+    });
 };
 
 Client.prototype = new EventEmitter();
@@ -27,16 +94,14 @@ Client.prototype.setScene = function(canvas, callback) {
     this.stage = new createjs.Stage(canvas);
     createjs.Touch.enable(this.stage);
     _this.resource('background', function(err, backgroundImage){ 
-
-        _this.setSpriteSheets(function(err, spriteSheets) {
-
-            _this.setBackground(backgroundImage, function(err, backgroundLayer) {
-                _this.initializeLayers(function(err) {
+        _this.setSpriteSheets(function() {
+            _this.setBackground(backgroundImage, function() {
+                _this.initializeLayers(function() {
                     _this.setTiles(_this.game.tiles, function() {
                         _this.game.on('tiles:config', function() {
                             _this.setTiles(_this.game.tiles);
                         });
-                        _this.setTimers(function(err) {
+                        _this.setTimers(function() {
                             callback();
                         });
                     });
@@ -70,88 +135,18 @@ Client.prototype.createUnit = function(entity, callback) {
         unit.id = entity.id;
         _this.addUnit(entity.id, unit, function() {
             _this.unitEvents(unit, entity);
-            _this.unitInput(unit, entity);
-            if (entity.tile) {
-                _this.moveUnit(unit, entity.tile, function() {
-                    callback(null, unit);
-                });
-            } else {
-                callback(null, unit);
+            _this.spawnUnit(unit, entity.tile);
+            if (typeof callback === 'function') {
+                callback(unit);
             }
         });
-
-    } else {
-        callback('Unit Class ' + entity.type + ' is not defined.');
     }
-};
-
-Client.prototype.unitInput = function(unit, entity) {
-    //var _this = this;
-    //this.createSprite('unit-shadow', function(err, shadow) {
-    //    shadow.regX = HexUtil.WIDTH * 0.5;
-    //    shadow.regY = HexUtil.HEIGHT * 0.5 - 2;
-    //    unit.container.addChildAt(shadow, 0);
-    //    shadow.addEventListener('click', function() {
-    //        unit.emit('input:select');
-    //    });
-    //});
 };
 
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
 
-    entity.on('act', function unitAct(command) {
-        var targetUnits = [];
-        var tileSprites = [];
-        // pool the sprite equivalent of the target entities
-        (function() {
-            command.eachTarget(function(target) {
-                _this.getUnit(target.entity.id, function(err, targetUnit) {
-                    targetUnits.push(targetUnit);
-                });
-            });
-        })();
-        // Make sure they're all clean
-        unit.removeAllListeners('act:end');
-        unit.removeAllListeners('act');
-
-        unit.on('act:end', function() {
-            unit.removeAllListeners('act:end');
-            unit.removeAllListeners('act');
-            command.eachTarget(function(target) {
-                var entity = target.entity;
-                var damage = target.damage;
-                _this.getUnit(entity.id, function(err, targetUnit) {
-                    _this.showDamage(targetUnit, damage);
-                    if (target.entity.stats.get('health').value === 0) {
-                        targetUnit.die();
-                    } else {
-                        targetUnit.damageEnd();
-                    }
-                });
-            });
-            _.each(tileSprites, function(tileSprite) {
-                tileSprite.parent.removeChild(tileSprite);
-            });
-        });
-
-        unit.on('act', function(damage) {
-            _.each(targetUnits, function(targetUnit) {
-                targetUnit.damage();
-            });
-        });
-
-        unit.actStart(command);
-        command.eachTarget(function(target) {
-            _this.getUnit(target.entity.id, function(err, targetUnit) {
-                _this.createTile('hex_target', target.entity.tile, function(err, tileSprite) {
-                    tileSprites.push(tileSprite);
-                });
-                targetUnit.damageStart();
-            });
-        });
-    });
 
     entity.on('die', function() {
         _this.removeUnit(unit);
@@ -195,11 +190,11 @@ Client.prototype.unitEvents = function(unit, entity) {
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
         Tween.removeTweens(unit.container);
-        tween = Tween.get(unit.container);
         if (unit.tilePathObject) {
             _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
             _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
         }
+        tween = Tween.get(unit.container);
         unit.tilePathObject = _this.generateTilePath(
             [prevTile].concat(path),
             function(tileSprite, i, prevTileSprite, tile) {
@@ -256,6 +251,18 @@ Client.prototype.unitEvents = function(unit, entity) {
         });
     });
 
+    entity.on('move:update', function(tile) {
+        var coord = HexUtil.coord(tile, true);
+        Tween.removeTweens(unit.container);
+        if (unit.tilePathObject) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
+            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
+        }
+        unit.prevX = HexUtil.coord(unit.lastTile).x;
+        unit.container.x = coord.x;
+        unit.container.y = coord.y;
+    });
+
     unit.on('move', function sortUnits(tile) {
         var index = 0;
         for(var i=0, _len = game.entities.length; i < _len; i++) {
@@ -282,7 +289,7 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('input:movetiles', function() {
-        var moveTiles, moveable;
+        var moveTiles;
         if (unit.tileSprites) {
             unit.emit('hide:pathtiles');
             unit.emit('hide:movetiles');
@@ -295,7 +302,7 @@ Client.prototype.unitEvents = function(unit, entity) {
 
             // show moveable tiles
             _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
-                tileSprite.addEventListener('click', function(e) {
+                tileSprite.addEventListener('click', function() {
                     var tiles, pathSpriteObject, lastTile;
                     tiles = [entity.tile].concat(game.tiles.findPath(entity.tile, tile));
                     unit.emit('hide:targettiles');
@@ -352,7 +359,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                         }
                     }
                     unit.tileSpritesTarget.push(tileSprite);
-                    tileSprite.addEventListener('click', function(e) {
+                    tileSprite.addEventListener('click', function() {
                         var tiles = [tile];
                         var tileSprites = [];
                         unit.emit('hide:pathtiles');
@@ -495,7 +502,7 @@ Client.prototype.createTile = function(name, tile, callback) {
     _this.createSprite(name, function(err, tileSprite) {
         HexUtil.position(tileSprite, tile);
         _this.layers.tiles.addChild(tileSprite);
-        callback(null, tileSprite);
+        callback(tileSprite);
     });
 };
 
@@ -508,8 +515,6 @@ Client.prototype.generateTilePath = function(tiles, callback) {
     var _this = this;
     var tileSprites = [];
     var graphics = new createjs.Graphics();
-    var tileSpriteCoordinates = HexUtil.coord(tiles[0]);
-
     var linePath = new createjs.Shape(graphics);
 
     graphics
@@ -548,12 +553,21 @@ Client.prototype.generateTilePath = function(tiles, callback) {
     };
 };
 
-Client.prototype.moveUnit = function(unit, tile, callback) {
-    var coord = HexUtil.coord(tile, true);
-    unit.container.x = coord.x;
-    unit.container.y = coord.y;
-    unit.move(tile);
-    callback(null, unit);
+Client.prototype.spawnUnit = function(unit, tile, callback) {
+    var coord;
+    if (unit) {
+        if (tile) {
+            coord = HexUtil.coord(tile, true);
+            unit.container.x = coord.x;
+            unit.container.y = coord.y;
+            unit.move(tile);
+            unit.face(tile.x > Game.columns * 0.5 ? 'left' : 'right');
+            if (typeof callback === 'function') {
+                callback(null, unit);
+            }
+        }
+    }
+
 };
 
 Client.prototype.addUnit = function(id, unit, callback) {
@@ -569,9 +583,9 @@ Client.prototype.removeUnit = function(unit) {
 
 Client.prototype.getUnit = function(id, callback) {
     var unit = this.units[id];
-    if (unit) {
-        if (typeof callback === 'function') {
-            callback(null, unit);
+    if (typeof callback === 'function') {
+        if (unit) {
+            callback(unit);
         }
     }
     return unit;

@@ -15,7 +15,7 @@ Collection.prototype.add = function(object) {
     this.children.push(object);
 };
 
-Collection.prototype.get = function(id) {
+Collection.prototype.get = function(id, fn) {
     return this._dictionary[id];
 };
 
@@ -30,6 +30,19 @@ Collection.prototype.first = function() {
 Collection.prototype.remove = function(child) {
     this.children.splice(this.children.indexOf(child), 1);
     delete this._dictionary[child.id];
+};
+
+Collection.prototype.each = function(fn) {
+    var child;
+    for (var i=0; i < this.children.length; i++) {
+        child = this.children[i];
+        if (child.name === 'null') {
+            continue;
+        }
+        if (fn(child, i) === false) {
+            break;
+        }
+    };
 };
 
 

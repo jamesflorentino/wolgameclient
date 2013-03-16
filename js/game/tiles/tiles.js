@@ -29,12 +29,18 @@ Tiles.prototype.initialize = function(columns, rows) {
  * @method get
  * @param {number} x
  * @param {number} y
+ * @param {Function} fn
  * @return {Tile}
  */
-Tiles.prototype.get = function(x, y) {
+Tiles.prototype.get = function(x, y, fn) {
     var tile;
     if (this.matrix[y]) {
         tile = this.matrix[y][x];
+        if (tile) {
+            if (typeof fn === 'function') {
+                fn(tile);
+            }
+        }
     }
     return tile;
 };

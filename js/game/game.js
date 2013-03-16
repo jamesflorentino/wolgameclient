@@ -42,12 +42,36 @@ Game.prototype.removeEntity = function(entity) {
     entity.die();
 };
 
-Game.prototype.createEntity = function(id, callback) {
-    var entity = GameEntity.create(id);
-    if (typeof callback === 'function') {
-        callback(entity);
+Game.prototype.createEntity = function(options, callback) {
+    var entity = GameEntity.create(options.id);
+    if (entity) {
+        if (options) {
+            entity.type = options.type;
+            entity.set(options.attributes);
+        }
+        if (typeof callback === 'function') {
+            callback(entity);
+        }
     }
     return entity;
+};
+
+Game.prototype.spawnEntity = function(options, fn) {
+    var _this = this;
+    this.createEntity(options, function(entity) {
+        _this.tiles.get(options.x, options.y, function(tile) {
+            entity.move(tile);
+            _this.addEntity(entity);
+            if (typeof fn === 'function') {
+                fn(entity);
+            }
+        });
+    });
+};
+
+Game.prototype.moveEntity = function(entity, tile, sync) {
+    entity.move(tile, sync);
+    this.emit('unit:move', entity, sync);
 };
 
 Game.prototype.getEntity = function(id, callback) {
@@ -55,10 +79,9 @@ Game.prototype.getEntity = function(id, callback) {
 
     if (typeof callback === 'function') {
         if (entity) {
-            callback(null, entity);
+            callback(entity);
         }
     }
-
     return entity;
 };
 
@@ -66,11 +89,48 @@ Game.prototype.eachEntity = function(callback) {
     _.each(this.entities, callback);
 };
 
-Game.prototype.act = function(entity, tile) {
-    if (entity instanceof GameEntity && tile instanceof Tile) {
-        // steps:
-        // 1. Determine the type of attack the unit will need to do
-    }
+
+/**
+ * Issue a command to an entity to a targetted tile with a particular command
+ */
+Game.prototype.actEntity = function(entity, tile, command) {
+    /** do damage calculation **/
+    var _this = this;
+    var attackRange = command.range;
+    var targets = [];
+    var results = [];
+    var tiles = this.tiles.neighbors(tile, attackRange);
+    tiles = [tile].concat(tiles);
+    /** Only include tiles with units  **/
+    tiles = _.filter(tiles, function(tile) {
+        return tile.entities.length > 0 && !tile.has(entity);
+    });
+
+    _.each(tiles, function(tile) {
+        var target = tile.entities[0];
+        var result = entity.act(target, command);
+        target.damage(result.damage);
+        targets.push({
+            id: target.id,
+            damage: result.damage
+        });
+
+        if (result.status) {
+            results.push({
+                id: target.id,
+                status: result.status
+            });
+        }
+    });
+
+    this.emit('unit:act', {
+        id: entity.id,
+        x: tile.x,
+        y: tile.y,
+        type: command.id,
+        targets: targets,
+        results: results
+    });
 };
 
 /** Turn based component **/

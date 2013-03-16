@@ -2,9 +2,18 @@ var UnitSprite = require('../unit-sprite');
 var frameData = require('../frames/marine');
 
 var spriteSheet = new createjs.SpriteSheet(frameData);
-spriteSheet.getAnimation('move_start').next = 'move';
+// loop back to idle
+spriteSheet.getAnimation('defend_end').next =
+spriteSheet.getAnimation('attack').next =
 spriteSheet.getAnimation('move_end').next = 'idle';
-spriteSheet.getAnimation('attack').next = 'idle';
+// do not loop
+spriteSheet.getAnimation('die_end').next =
+spriteSheet.getAnimation('defend_start').next = false;
+// others
+spriteSheet.getAnimation('move_start').next = 'move';
+spriteSheet.getAnimation('die_start').next = 'die_end';
+spriteSheet.getAnimation('hit').next = 'defend_hold';
+
 
 var Marine = function() {
     this.initialize.apply(this, arguments);
@@ -47,7 +56,8 @@ Marine.prototype.actStart = function() {
     var act = this.act.bind(this)
     createjs.Tween.get(this)
         .wait(300).call(act)
-        .wait(300).call(act)
+        .wait(100).call(act)
+        .wait(200).call(act)
         .wait(300).call(function() {
             _this.actEnd();
         })
@@ -62,7 +72,7 @@ Marine.prototype.damageEnd = function() {
     this.animation.gotoAndPlay('defend_end');
 };
 
-Marine.prototype.hit = function() {
+Marine.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
 };
 
