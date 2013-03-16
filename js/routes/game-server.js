@@ -69,6 +69,15 @@ function serverEmulator(socket) {
         });
     });
 
+    game.on('unit:enable', function(entity) {
+        socket.emit('unit/turn', {
+            c: 'enable',
+            id: entity.id,
+            x: entity.tile.x,
+            y: entity.tile.y
+        });
+    });
+
     socket.on('unit:turn', function(data) {
         var c = data.c; // [skip|move|act|create] - type of action
         var id = data.id; // id of the originating entity or the name of the requested unit in create mode
@@ -144,8 +153,8 @@ function serverEmulator(socket) {
         this.attack = function attack(time) {
             return this.wait(time, function() {
                 var entity, target, tile, command;
-                entity = game.entities[1];
-                target = game.entities[0];
+                entity = game.entities[0];
+                target = game.entities[1];
                 tile = game.tiles.get(target.tile.x, target.tile.y);
                 command = entity.commands.at(0);
                 routes.emit('unit:act', {
@@ -161,7 +170,7 @@ function serverEmulator(socket) {
         this.correctpos = function(time) {
             return this.wait(time, function() {
                 var entity, tile;
-                entity = game.entities[0];
+                entity = game.entities[1];
                 tile = game.tiles.get(entity.tile.x, entity.tile.y);
                 routes.emit('unit:move', {
                     id: entity.id,
@@ -172,15 +181,28 @@ function serverEmulator(socket) {
             });
         };
 
+        this.setTurn = function(time) {
+            return this.wait(time, function() {
+                game.setTurn(game.entities[0]);
+            });
+        };
 
-        this.spawn(100)
-            .correctpos(500)
-            //.attack(500)
-            ;
+        this.nextTurn = function(time) {
+            return this.wait(time, function() {
+                game.nextTurn();
+            });
+        };
 
+        return this;
     }
 
-    test();
+    test().spawn(100)
+        .setTurn(1000)
+        //.nextTurn(1000)
+        //.correctpos(500)
+        //.move(1000)
+        //.attack(500)
+        ;
 }
 
 module.exports = serverEmulator;

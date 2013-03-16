@@ -57,9 +57,9 @@ Vanguard.prototype.actStart = function() {
     this.animation.gotoAndPlay('attack');
     var act = this.act.bind(this);
     createjs.Tween.get(this)
-        .wait(1000).call(act)
-        .wait(1000).call(act)
-        .wait(300).call(function() {
+        .wait(900).call(act)
+        .wait(900).call(act)
+        .wait(200).call(function() {
             _this.actEnd();
         })
         ;

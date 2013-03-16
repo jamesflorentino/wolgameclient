@@ -137,11 +137,20 @@ Game.prototype.actEntity = function(entity, tile, command) {
 Game.prototype.setTurn = function(entity) {
     if (this.entities.indexOf(entity) > -1) {
         this.currentTurn = entity;
+        entity.enable();
+        this.emit('unit:enable', entity);
     }
 };
 
 Game.prototype.endTurn = function() {
+    if (this.currentTurn) {
+        this.emit('unit:disable', this.currentTurn);
+    }
     this.currentTurn = null;
+};
+
+Game.prototype.nextTurn = function() {
+    this.endTurn();
 };
 
 Game.create = function(callback) {

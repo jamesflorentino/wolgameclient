@@ -20,17 +20,19 @@ UnitSprite.prototype.initialize = function(entity) {
 };
 
 UnitSprite.prototype.face = function(direction) {
+    var scale;
     switch (direction) {
         case 'left':
-            this.container.scaleX = -1;
+            this.container.scaleX = scale = -1;
             break;
         case 'right':
-            this.container.scaleX = 1;
+            this.container.scaleX = scale = 1;
             break;
         default:
             throw 'unrecognized value `' + direction + '` for parameter direction. Possible values: left|right';
             break;
     }
+    this.direction = scale;
 };
 
 UnitSprite.prototype.moveStart = function() {

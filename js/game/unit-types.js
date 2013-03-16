@@ -1,12 +1,12 @@
 module.exports = {
     vanguard: {
         stats: {
-            defense: 20,
-            health: 200
+            defense: 50,
+            health: 1000
         },
         commands: {
             dualshot: {
-                damage: 100,
+                damage: 300,
                 range: 1,
                 cooldown: 0,
                 splash: 1
@@ -21,8 +21,8 @@ module.exports = {
         },
         commands: {
             rifleshot: {
-                damage: 50,
-                range: 4,
+                damage: 500,
+                range: 10,
                 cooldown: 0,
                 splash: 0
             }

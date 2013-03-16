@@ -76,6 +76,10 @@ Marine.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
 };
 
+Marine.prototype.die = function() {
+    this.animation.gotoAndPlay('die_start');
+};
+
 
 
 module.exports = Marine;

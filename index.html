@@ -9,7 +9,14 @@
             body{ background: #111; overflow: hidden; }
             .canvas { border: 1px solid #555; }
             .center { text-align: center; margin-top: 0; }
-            .hud { position: absolute; top: 0; left: 0; bottom: 0; right: 0; pointer-events: none; }
+            .hud { 
+                position: absolute; top: 0; left: 0; bottom: 0; right: 0; pointer-events: none;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                -o-user-select: none;
+                user-select: none;
+                }
             .hud #unit-info,
             .hud #logs {
                 position: absolute;

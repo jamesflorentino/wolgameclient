@@ -17,9 +17,9 @@ GameEntity.prototype.state = null;
 GameEntity.prototype.initialize = function(id) {
     this.id = id;
     this.stats = new Stats();
-    this.stats.add('health', 100, 100);
-    this.stats.add('damage', 10, 10);
-    this.stats.add('defense', 10, 10);
+    this.stats.add('health', 800, 800);
+    this.stats.add('damage', 100, 100);
+    this.stats.add('defense', 0);
     this.stats.add('range', 1, 1);
     this.commands = new Commands();
     this.tile = null;
@@ -40,11 +40,11 @@ GameEntity.prototype.move = function(tile, sync) {
     var prevTile = this.tile;
     this.prevTile = this.tile;
     this.tile = tile;
-	if (sync) {
-		this.emit('move:update', tile);
-	} else {
-		this.emit('move:start', tile);
-	}
+    if (sync) {
+        this.emit('move:update', tile);
+    } else {
+        this.emit('move:start', tile);
+    }
 
     if (prevTile) {
         prevTile.vacate(this);
@@ -73,14 +73,14 @@ GameEntity.prototype.act = function(target, command) {
     var health = target.stats.get('health').val();
     var defense = target.stats.get('defense').val();
     var damage = Math.max(0, command.damage - defense);
-    var status;
+    var status = 'damage';
     if (health - damage < 0) {
         status = 'death';
     }
-	this.emit('act', {
-		target: target,
-		command: command
-	});
+    this.emit('act', {
+        target: target,
+        command: command
+    });
     return {
         damage: damage,
         status: status

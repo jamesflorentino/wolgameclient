@@ -1,7 +1,6 @@
 var logs = require('../logs');
 
-function clientEvents(game, client) {
-
+function clientEvents(game, client, socket) {
     var log = logs('#unit-info', true);
 
     client.on('unit:info', function(entity) {
@@ -26,17 +25,18 @@ function clientEvents(game, client) {
         );
     });
 
-    client.on('input:movetile', function(data) {
-        socket.emit('input:turn', {
+    client.on('input:move', function(data) {
+        socket.emit('unit:turn', {
+            c: 'move',
             id: data.entity.id,
-            type: 'move',
             x: data.tile.x,
             y: data.tile.y
         });
     });
 
-    client.on('input:acttile', function(data) {
-        socket.emit('input:acttile', {
+    client.on('input:act', function(data) {
+        socket.emit('unit:turn', {
+            c: 'act',
             id: data.entity.id,
             target: data.target.id,
             command: data.command.id,
