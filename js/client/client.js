@@ -1,7 +1,7 @@
 /*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
-var frames = require('./frames/frames');
+var frames = require('./frames/frames'); // spriteSheet frameData
 var Game = require('../game/game');
 var settings = require('./settings');
 var EventEmitter = require('events').EventEmitter;
@@ -9,6 +9,7 @@ var spriteClasses = {
     marine: require('./unit-classes/marine'),
     vanguard: require('./unit-classes/vanguard')
 };
+var frameDataOffset = require('./frame-data-offset');
 var _ = require('underscore');
 var Ease = createjs.Ease;
 var Tween = createjs.Tween;
@@ -147,6 +148,29 @@ Client.prototype.setSpriteSheets = function(callback) {
         }
     }
     callback(null, this.spriteSheets);
+};
+
+Client.prototype.createFGElement = function(name, tile, callback) {
+    var animation, spriteSheet, coord, regX, regY, offset, _this = this;
+    spriteSheet = this.spriteSheets.foreground;
+    if (spriteSheet.getAnimation(name)) {
+        animation = new createjs.BitmapAnimation(spriteSheet);
+        animation.gotoAndStop(name);
+        coord = HexUtil.coord(tile);
+        offset = frameDataOffset[tile.type];
+        regX = offset && offset.regX ? offset.regX : 0;
+        regY = offset && offset.regY ? offset.regY : 0;
+        animation.set({
+            x: coord.x,
+            y: coord.y,
+            regX: regX,
+            regY: regY
+        });
+        _this.layers.foreground.addChild(animation);
+        if (typeof callback === 'function') {
+            callback(null, animation);
+        }
+    }
 };
 
 Client.prototype.createSprite = function(name, callback) {
@@ -375,12 +399,11 @@ Client.prototype.unitEvents = function(unit, entity) {
             } else {
                 unit.tileSpritesTarget = [];
                 targets = game.tiles.neighbors(entity.tile, command.range);
-                console.log(command.range);
                 targets = _.filter(targets, function(tile) {
                     var truthy = tile.entities.length > 0;
                     _.each(tile.entities, function(entity) {
                         if (entity.stats.get('health').val() === 0) {
-                            return truthy = false;
+                            return (truthy = false);
                         }
                     });
                     return truthy;
@@ -432,7 +455,6 @@ Client.prototype.unitEvents = function(unit, entity) {
                             }, 200, Ease.backOut);
 
                         });
-                        console.log(entity.tile, tile);
                         var linePath = _this.createLinePath(entity.tile, tile);
                         unit.tileSpritesTargetMark = [linePath].concat(tileSprites);
                     });
@@ -510,7 +532,7 @@ Client.prototype.showDamage = function(unit, damage) {
                 x: posX,
                 y: posY + Math.random() * 50,
                 alpha: 0
-            })
+            });
             _this.layers.terrain.addChild(sprite);
             Tween.get(sprite)
                 .wait(i * 80)
@@ -646,7 +668,6 @@ Client.prototype.spawnUnit = function(unit, tile, callback) {
             }
         }
     }
-
 };
 
 Client.prototype.addUnit = function(id, unit, callback) {
@@ -690,12 +711,16 @@ Client.prototype.setTiles = function(tiles, callback) {
                 cacheContainer.addChild(tileSprite);
             });
         }
+        if (tile.type) {
+            _this.createFGElement(tile.type, tile);
+        }
     });
     cacheContainer.cache(0, 0, terrainWidth, terrainHeight);
     cacheContainer.name = 'tileBackgrounds';
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
+    this.layers.terrain.addChild(this.layers.foreground); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     if (typeof callback === 'function') {
@@ -727,8 +752,10 @@ Client.prototype.initializeLayers = function(callback) {
     this.layers.terrain = new createjs.Container();
     this.layers.tiles = new createjs.Container();
     this.layers.units = new createjs.Container();
+    this.layers.foreground = new createjs.Container();
     this.layers.terrain.addChild(this.layers.tiles);
     this.layers.terrain.addChild(this.layers.units);
+    this.layers.terrain.addChild(this.layers.foreground);
     this.stage.addChild(this.layers.terrain);
     callback(null);
 };

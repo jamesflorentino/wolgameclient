@@ -18,6 +18,9 @@ var clientEvents = require('./routes/client-routes');
 var gameRoutes = require('./routes/game-routes');
 var socket = window.socket || new EventEmitter();
 
+/** level **/
+var baseLevel = require('./levels/base');
+
 function preventDraggingiOS() {
     document.body.addEventListener('touchmove', function (ev) { 
         ev.preventDefault();
@@ -39,6 +42,7 @@ function preventContextMenu() {
 
 window.addEventListener('load', function() {
     Game.create(function(err, game) {
+        game.loadMap(baseLevel);
         Client.create(game, function(err, client) {
             client.preloader.load(assetManifest, function(err) {
                 client.setScene(document.querySelector('canvas#game'), function(err) {

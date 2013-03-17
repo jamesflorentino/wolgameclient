@@ -3,3 +3,6 @@ server:
 
 watch:
 	node watch
+
+compile:
+	node compile-sheet

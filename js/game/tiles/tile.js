@@ -1,6 +1,7 @@
 var Tile = function() {
     this.initialize.apply(this, arguments);
 };
+
 /**
  * @protected
  * @param x
@@ -16,6 +17,7 @@ Tile.prototype.initialize = function(x, y, index) {
     this.h = 0;
     this.cost = -1;
     this.parent = null;
+    this.type = null;
     this.entities = [];
 };
 
@@ -63,7 +65,7 @@ Tile.prototype.vacate = function(entity) {
 
 Tile.prototype.has = function(entity) {
     return this.entities.indexOf(entity) > -1;
-}
+};
 
 Tile.create = function() {
     return new Tile();

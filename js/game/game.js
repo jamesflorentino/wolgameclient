@@ -89,6 +89,20 @@ Game.prototype.eachEntity = function(callback) {
     _.each(this.entities, callback);
 };
 
+Game.prototype.loadMap = function(tiles) {
+    var _this = this;
+    _.each(tiles, function(t) {
+        _this.tiles.get(t.x, t.y, function(tile) {
+            if (t.hasOwnProperty('wall')) {
+                tile.wall = Boolean(t.wall);
+            }
+            if (t.hasOwnProperty('type')) {
+                tile.type = t.type;
+            }
+        });
+    });
+};
+
 
 /**
  * Issue a command to an entity to a targetted tile with a particular command
