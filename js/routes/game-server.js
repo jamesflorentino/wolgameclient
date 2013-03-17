@@ -78,6 +78,15 @@ function serverEmulator(socket) {
         });
     });
 
+    game.on('unit:disable', function(entity) {
+        socket.emit('unit/turn', {
+            c: 'enable',
+            id: entity.id,
+            x: entity.tile.x,
+            y: entity.tile.y
+        });
+    });
+
     socket.on('unit:turn', function(data) {
         var c = data.c; // [skip|move|act|create] - type of action
         var id = data.id; // id of the originating entity or the name of the requested unit in create mode
@@ -197,7 +206,7 @@ function serverEmulator(socket) {
     }
 
     test().spawn(100)
-        .setTurn(1000)
+        .setTurn(100)
         //.nextTurn(1000)
         //.correctpos(500)
         //.move(1000)

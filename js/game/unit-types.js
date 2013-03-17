@@ -22,7 +22,7 @@ module.exports = {
         commands: {
             rifleshot: {
                 damage: 500,
-                range: 10,
+                range: 13,
                 cooldown: 0,
                 splash: 0
             }

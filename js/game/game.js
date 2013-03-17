@@ -143,8 +143,10 @@ Game.prototype.setTurn = function(entity) {
 };
 
 Game.prototype.endTurn = function() {
-    if (this.currentTurn) {
-        this.emit('unit:disable', this.currentTurn);
+    var entity = this.currentTurn;
+    if (entity) {
+        entity.disable();
+        this.emit('unit:disable', entity);
     }
     this.currentTurn = null;
 };

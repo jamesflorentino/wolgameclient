@@ -58,6 +58,18 @@ function gameRoutes(socket, game) {
         });
     });
 
+    routes.on('unit:disable', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y
+        };
+        game.getEntity(options.id, function(entity) {
+            game.endTurn(entity);
+            log('disable: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+        });
+    });
+
     socket.on('unit/turn', function(data) {
         console.log('turn', data);
         routes.emit('unit:' + data.c, data);
