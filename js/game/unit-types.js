@@ -17,13 +17,13 @@ module.exports = {
     marine: {
         type: 'marine',
         stats: {
-            range: 3,
+            range: 2,
             splash: 1
         },
         commands: {
             rifleshot: {
                 damage: 500,
-                range: 13,
+                range: 3,
                 cooldown: 0,
                 splash: 0
             }

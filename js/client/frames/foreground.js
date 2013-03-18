@@ -1,5 +1,5 @@
 module.exports = {
-"images": ["/media/foreground.png"],
+"images": ["media/foreground.png"],
 "frames": [
 
     [2, 2, 44, 68], 

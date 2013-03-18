@@ -6,7 +6,7 @@ function convert(filename) {
         if (err) {
             throw new Error(err);
         }
-        var parsed = 'module.exports = ' + res.replace(/(\w+)\.png/, function(a, b) { return '/media/' + a; }) + ';';
+        var parsed = 'module.exports = ' + res.replace(/(\w+)\.png/, function(a, b) { return 'media/' + a; }) + ';';
         fs.writeFile('./js/client/frames/' + filename + '.js', parsed, function(err) {
             if (!err) {
                 console.log('saved!');

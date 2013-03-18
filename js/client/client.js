@@ -75,7 +75,7 @@ Client.prototype.initialize = function(game) {
 
             unit.on('act', function() {
                 var parent = unit;
-                _.each(targets, function(target) {
+                _.each(targets, function(target, i) {
                     var unit = target.unit;
                     var coord = HexUtil.coord(target.entity.tile, true);
                     var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
@@ -92,7 +92,6 @@ Client.prototype.initialize = function(game) {
                     unit.damage();
                 });
             });
-
             _.each(data.targets, function(obj) {
                 var id = obj.id;
                 var damage = obj.damage;
@@ -341,8 +340,6 @@ Client.prototype.unitEvents = function(unit, entity) {
         if (_this.game.currentTurn === entity) {
             unit.emit('tile:move');
             unit.emit('tile:act');
-        } else {
-            console.log('nope');
         }
     });
 
@@ -363,7 +360,6 @@ Client.prototype.unitEvents = function(unit, entity) {
                 tileSprite.addEventListener('click', function() {
                     var tiles, pathSpriteObject, lastTile;
                     var path = game.tiles.findPath(entity.tile, tile);
-                    console.log(path);
                     tiles = [entity.tile].concat(path);
                     unit.emit('tiles:hide:target');
                     unit.emit('tiles:hide:path');

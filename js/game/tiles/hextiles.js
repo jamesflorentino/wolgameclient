@@ -206,22 +206,25 @@ HexTiles.prototype.findMovementCost = function(start, end) {
     return end.entities.length || end.wall ? 10000 : end.val();
 };
 
-HexTiles.prototype.findRange = function(tile, radius) {
+HexTiles.prototype.findRange = function(tile, limit) {
     var open = [tile];
     var closed = [];
-    var currTile, i;
-    var limit = radius;
+    var currTile;
     var neighbors;
-    var i, _len, neighbor, newCost;
+    var neighbor, newCost, i, _len;
 
     while(open.length > 0) {
         currTile = open.pop();
         closed.push(currTile);
         if (currTile.cost < limit) {
             neighbors = this.neighbors(currTile);
-            for(i = 0, _len = neighbors.length; i < _len; i++) {
+            _len = neighbors.length;
+            for(i = 0; i < _len; i++) {
                 neighbor = neighbors[i];
                 newCost = currTile.cost + this.findMovementCost(currTile, neighbor);
+                if (neighbor.blocked(currTile) || currTile.blocked(neighbor)) {
+                    continue;
+                }
                 if (neighbor.cost === -1 || newCost < neighbor.cost) {
                     neighbor.cost = newCost;
                     if (open.indexOf(neighbor) === -1) {
