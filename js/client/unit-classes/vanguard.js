@@ -24,10 +24,10 @@ Vanguard.prototype.__super = UnitSprite.prototype;
 
 Vanguard.prototype.initialize = function(entity) {
     this.__super.initialize.apply(this, arguments);
-    this.walkDuration = 1200;
+    this.walkDuration = 900;
     this.animation = new createjs.BitmapAnimation(spriteSheet);
     this.container.addChild(this.animation);
-    this.animation.gotoAndPlay('idle');
+    this.animation.gotoAndPlay('idle')
     /** Sequence Events **/
 };
 
@@ -37,6 +37,7 @@ Vanguard.prototype.moveStart = function() {
 
 Vanguard.prototype.moveEnd = function() {
     this.animation.gotoAndPlay('move_end');
+    this.__super.moveEnd.apply(this, arguments);
 };
 
 Vanguard.prototype.damageStart = function() {
@@ -66,6 +67,7 @@ Vanguard.prototype.actStart = function() {
 }
 
 Vanguard.prototype.die = function() {
+    console.log('die');
     this.animation.gotoAndPlay('die_start');
 };
 

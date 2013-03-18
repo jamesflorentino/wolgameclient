@@ -21,6 +21,8 @@ GameEntity.prototype.initialize = function(id) {
     this.stats.add('damage', 100, 100);
     this.stats.add('defense', 0);
     this.stats.add('range', 1, 1);
+    this.stats.add('turnspeed', 0, 100);
+    this.stats.add('turn', 0, 100);
     this.commands = new Commands();
     this.tile = null;
 };
@@ -69,12 +71,38 @@ GameEntity.prototype.die = function() {
     this.emit('die');
 };
 
-GameEntity.prototype.act = function(target, command) {
-    var health = target.stats.get('health').val();
-    var defense = target.stats.get('defense').val();
-    var damage = Math.max(0, command.damage - defense);
-    var status = 'damage';
-    if (health - damage < 0) {
+GameEntity.prototype.isDead = function() {
+    return this.stats.get('health').val() === 0;
+};
+
+/**
+ * The index parameter will be the basis for the splash damage calculation
+ * @param {GameEntity} target entity
+ * @param {Command} command target comand
+ * @param {Number} index
+ */
+GameEntity.prototype.act = function(target, command, index) {
+    var health, defense, damage, status, tile;
+    health = target.stats.get('health').val();
+    defense = target.stats.get('defense').val();
+    damage = command.damage;
+
+    /** target defense bonuses **/
+    if (typeof target.tile.defense === 'number') {
+        defense += target.tile.defense;
+    }
+
+    /** entity attack bonuses **/
+    if (typeof this.tile.attack === 'number') {
+        damage += this.tile.attack;
+    }
+
+    // apply splash index bonuses
+    damage = index > 0 ? damage * 0.5 : damage;
+    damage = Math.max(0, damage - defense);
+    status = 'damage';
+
+    if (health - damage <= 0) {
         status = 'death';
     }
     this.emit('act', {

@@ -266,19 +266,18 @@ EventEmitter.prototype.listeners = function(type) {
 },{}],5:[function(require,module,exports){var base = [
     //{ x: 4, y: 0, wall: 1 },
     //{ x: 4, y: 1, wall: 1 },
-    { x: 3, y: 4, defense: 100, wall: 0, type: 'cover0-a', walls: [[3,5]] },
-    { x: 3, y: 5, defense: 1000, wall: 0, type: 'cover0-a', walls: [[4,5], [4,6]]},
-    { x: 2, y: 5, damage: 10 },
+    { x: 3, y: 3, defense: 50, type: 'cover0-a', walls: [[4,3]]},
     //{ x: 4, y: 2, wall: 1, type: 'wall0' },
     //{ x: 4, y: 3, wall: 1 },
     //{ x: 4, y: 4, wall: 1 },
     { x: 4, y: 0, wall: 1, type: 'wall0' },
     { x: 4, y: 1, wall: 1, type: 'wall0' },
-    { x: 5, y: 2, wall: 1, type: 'wall0' },
+    { x: 4, y: 2, wall: 1, type: 'wall0' },
+    { x: 4, y: 5, wall: 1, type: 'wall0' },
+    { x: 5, y: 6, wall: 1, type: 'wall0' },
     { x: 4, y: 7, wall: 1, type: 'wall0' },
-    { x: 4, y: 3, wall: 1, type: 'wall0' }
     //{ x: 4, y: 6, wall: 1 },
-    //{ x: 4, y: 7, wall: 1 }
+    { x: 0, y: 0, wall: 1 }
 ];
 module.exports = base;
 
@@ -506,31 +505,7 @@ Tile.create = function() {
 };
 module.exports = Tile;
 
-},{}],11:[function(require,module,exports){var HexUtil = {
-    WIDTH: 81,
-    HEIGHT: 60,
-    position: function(hex, tile, center) {
-        var coord = this.coord(tile, center);
-        hex.regX = this.WIDTH * 0.5;
-        hex.regY = this.HEIGHT * 0.5;
-        hex.x = coord.x + hex.regX;
-        hex.y = coord.y + hex.regY;
-        return coord;
-    },
-    coord: function(tile, center) {
-        if (tile === undefined) {
-            return null;
-        }
-        return {
-            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
-            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
-        };
-    }
-};
-
-module.exports = HexUtil;
-
-},{}],12:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
+},{}],11:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
 /*global createjs*/
 var Preloader = function() {
     this.manifest = [];
@@ -559,7 +534,31 @@ Preloader.prototype.getResource = function(idOrURL) {
 module.exports = Preloader;
 
 })()
-},{"events":2}],13:[function(require,module,exports){module.exports = {
+},{"events":2}],12:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],13:[function(require,module,exports){module.exports = {
     'wall0': {
         regY: 25,
     },
@@ -592,15 +591,15 @@ module.exports = Preloader;
     marine: {
         type: 'marine',
         stats: {
-            range: 1,
+            range: 2,
             splash: 1
         },
         commands: {
             rifleshot: {
-                damage: 500,
+                damage: 250,
                 range: 3,
                 cooldown: 0,
-                splash: 3
+                splash: 0
             }
         }
     }
@@ -964,13 +963,9 @@ GameEntity.prototype.act = function(target, command, index) {
     defense = target.stats.get('defense').val();
     damage = command.damage;
 
-    tile = target.tile;
-
     /** target defense bonuses **/
-    if (typeof tile.defense === 'number') {
-        if (tile.blocked(this.tile)) {
-            defense += tile.defense;
-        }
+    if (typeof target.tile.defense === 'number') {
+        defense += target.tile.defense;
     }
 
     /** entity attack bonuses **/
@@ -1126,10 +1121,10 @@ Vanguard.prototype.__super = UnitSprite.prototype;
 
 Vanguard.prototype.initialize = function(entity) {
     this.__super.initialize.apply(this, arguments);
-    this.walkDuration = 1200;
+    this.walkDuration = 900;
     this.animation = new createjs.BitmapAnimation(spriteSheet);
     this.container.addChild(this.animation);
-    this.animation.gotoAndPlay('idle');
+    this.animation.gotoAndPlay('idle')
     /** Sequence Events **/
 };
 
@@ -1175,137 +1170,7 @@ Vanguard.prototype.die = function() {
 
 module.exports = Vanguard;
 
-},{"../unit-sprite":26,"../frames/vanguard":22}],21:[function(require,module,exports){module.exports = {
-    "frames": [
-        [1528, 0, 52, 78, 0, 18, 68],
-        [1015, 0, 52, 78, 0, 18, 68],
-        [963, 0, 52, 78, 0, 18, 68],
-        [911, 0, 52, 78, 0, 18, 68],
-        [859, 0, 52, 78, 0, 18, 68],
-        [310, 86, 52, 77, 0, 18, 67],
-        [258, 86, 52, 77, 0, 18, 67],
-        [206, 86, 52, 77, 0, 18, 67],
-        [155, 86, 51, 77, 0, 18, 67],
-        [104, 86, 51, 77, 0, 18, 67],
-        [1992, 0, 52, 77, 0, 18, 67],
-        [1940, 0, 52, 77, 0, 18, 67],
-        [52, 86, 52, 77, 0, 18, 67],
-        [1888, 0, 52, 77, 0, 18, 67],
-        [1733, 0, 52, 77, 0, 18, 67],
-        [1836, 0, 52, 77, 0, 18, 67],
-        [1220, 0, 52, 78, 0, 18, 68],
-        [1272, 0, 52, 78, 0, 18, 68],
-        [1324, 0, 52, 78, 0, 18, 68],
-        [1376, 0, 51, 78, 0, 18, 68],
-        [482, 163, 52, 71, 0, 16, 62],
-        [914, 163, 55, 68, 0, 17, 59],
-        [1023, 163, 57, 66, 0, 19, 58],
-        [969, 163, 54, 67, 0, 17, 58],
-        [744, 163, 52, 69, 0, 15, 59],
-        [378, 163, 52, 71, 0, 15, 60],
-        [430, 163, 52, 71, 0, 15, 59],
-        [271, 163, 53, 72, 0, 15, 58],
-        [1955, 86, 55, 73, 0, 18, 58],
-        [534, 163, 53, 71, 0, 16, 58],
-        [692, 163, 52, 69, 0, 15, 58],
-        [587, 163, 52, 70, 0, 15, 59],
-        [796, 163, 52, 68, 0, 15, 58],
-        [1080, 163, 53, 66, 0, 15, 58],
-        [639, 163, 53, 70, 0, 16, 61],
-        [1733, 86, 52, 73, 0, 17, 64],
-        [1785, 0, 51, 77, 0, 18, 67],
-        [1631, 0, 50, 77, 0, 17, 67],
-        [1427, 0, 50, 78, 0, 17, 68],
-        [1067, 0, 50, 78, 0, 17, 68],
-        [572, 86, 53, 75, 0, 18, 64],
-        [1007, 86, 56, 74, 0, 19, 61],
-        [1677, 86, 56, 73, 0, 19, 60],
-        [1898, 86, 57, 73, 0, 19, 59],
-        [1841, 86, 57, 73, 0, 19, 59],
-        [1785, 86, 56, 73, 0, 19, 59],
-        [633, 0, 102, 86, 0, 19, 72],
-        [531, 0, 102, 86, 0, 19, 72],
-        [102, 0, 102, 86, 0, 19, 72],
-        [735, 0, 124, 86, 0, 19, 72],
-        [321, 0, 102, 86, 0, 19, 72],
-        [0, 0, 102, 86, 0, 19, 72],
-        [423, 0, 108, 86, 0, 19, 72],
-        [204, 0, 117, 86, 0, 19, 72],
-        [1284, 86, 56, 73, 0, 19, 59],
-        [1620, 86, 57, 73, 0, 19, 59],
-        [1340, 86, 57, 73, 0, 19, 59],
-        [1226, 86, 58, 73, 0, 19, 59],
-        [1507, 86, 58, 73, 0, 19, 60],
-        [895, 86, 57, 75, 0, 19, 62],
-        [786, 86, 56, 75, 0, 19, 63],
-        [842, 86, 53, 75, 0, 18, 64],
-        [467, 86, 52, 76, 0, 18, 65],
-        [362, 86, 52, 77, 0, 18, 66],
-        [1168, 0, 52, 78, 0, 18, 67],
-        [1117, 0, 51, 78, 0, 18, 68],
-        [1580, 0, 51, 78, 0, 18, 68],
-        [1477, 0, 51, 78, 0, 18, 68],
-        [414, 86, 53, 77, 0, 18, 65],
-        [625, 86, 54, 75, 0, 18, 62],
-        [1117, 86, 55, 74, 0, 18, 60],
-        [952, 86, 55, 74, 0, 18, 59],
-        [1397, 86, 55, 73, 0, 18, 58],
-        [1452, 86, 55, 73, 0, 18, 58],
-        [217, 163, 54, 72, 0, 19, 57],
-        [0, 163, 53, 72, 0, 18, 57],
-        [53, 163, 54, 72, 0, 18, 57],
-        [324, 163, 54, 72, 0, 18, 57],
-        [162, 163, 55, 72, 0, 18, 57],
-        [1565, 86, 55, 73, 0, 18, 59],
-        [1172, 86, 54, 74, 0, 18, 60],
-        [1063, 86, 54, 74, 0, 18, 61],
-        [679, 86, 54, 75, 0, 18, 62],
-        [733, 86, 53, 75, 0, 18, 63],
-        [519, 86, 53, 76, 0, 18, 65],
-        [1681, 0, 52, 77, 0, 18, 66],
-        [0, 86, 52, 77, 0, 18, 67],
-        [107, 163, 55, 72, 0, 23, 57],
-        [1133, 163, 59, 65, 0, 28, 50],
-        [1388, 163, 61, 62, 0, 30, 48],
-        [1324, 163, 64, 62, 0, 30, 48],
-        [1258, 163, 66, 62, 0, 30, 48],
-        [848, 163, 66, 68, 0, 30, 48],
-        [1192, 163, 66, 65, 0, 30, 48],
-        [1515, 163, 66, 62, 0, 30, 48],
-        [1449, 163, 66, 62, 0, 30, 47],
-        [1581, 163, 65, 60, 0, 29, 45],
-        [1646, 163, 65, 58, 0, 29, 42],
-        [1711, 163, 64, 50, 0, 28, 32],
-        [1775, 163, 69, 43, 0, 27, 23],
-        [1844, 163, 79, 34, 0, 26, 14],
-        [79, 235, 79, 33, 0, 26, 13],
-        [1923, 163, 79, 33, 0, 26, 13],
-        [0, 235, 79, 33, 0, 26, 13],
-        [237, 235, 79, 33, 0, 26, 13],
-        [158, 235, 79, 33, 0, 26, 13],
-        [395, 235, 79, 32, 0, 26, 12],
-        [316, 235, 79, 32, 0, 26, 12],
-        [474, 235, 79, 32, 0, 26, 12],
-        [553, 235, 79, 31, 0, 26, 11]
-    ],
-    "animations": {
-        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
-        "all": {"frames": [0]},
-        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
-        "die_end": {"frames": [109]},
-        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
-        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
-        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
-        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
-        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
-        "move_start": {"frames": [0, 20, 21]},
-        "hit": {"frames": [74, 75, 76, 77, 78]},
-        "defend_hold": {"frames": [73]}
-    },
-    "images": ["media/marine.png"]
-};
-
-},{}],22:[function(require,module,exports){module.exports = {
+},{"../unit-sprite":26,"../frames/vanguard":22}],22:[function(require,module,exports){module.exports = {
     "frames": [
         [68, 313, 60, 94, 0, 33, 76],
         [1541, 219, 60, 94, 0, 33, 76],
@@ -1580,6 +1445,136 @@ module.exports = Vanguard;
 ]
 }
 ;
+},{}],21:[function(require,module,exports){module.exports = {
+    "frames": [
+        [1528, 0, 52, 78, 0, 18, 68],
+        [1015, 0, 52, 78, 0, 18, 68],
+        [963, 0, 52, 78, 0, 18, 68],
+        [911, 0, 52, 78, 0, 18, 68],
+        [859, 0, 52, 78, 0, 18, 68],
+        [310, 86, 52, 77, 0, 18, 67],
+        [258, 86, 52, 77, 0, 18, 67],
+        [206, 86, 52, 77, 0, 18, 67],
+        [155, 86, 51, 77, 0, 18, 67],
+        [104, 86, 51, 77, 0, 18, 67],
+        [1992, 0, 52, 77, 0, 18, 67],
+        [1940, 0, 52, 77, 0, 18, 67],
+        [52, 86, 52, 77, 0, 18, 67],
+        [1888, 0, 52, 77, 0, 18, 67],
+        [1733, 0, 52, 77, 0, 18, 67],
+        [1836, 0, 52, 77, 0, 18, 67],
+        [1220, 0, 52, 78, 0, 18, 68],
+        [1272, 0, 52, 78, 0, 18, 68],
+        [1324, 0, 52, 78, 0, 18, 68],
+        [1376, 0, 51, 78, 0, 18, 68],
+        [482, 163, 52, 71, 0, 16, 62],
+        [914, 163, 55, 68, 0, 17, 59],
+        [1023, 163, 57, 66, 0, 19, 58],
+        [969, 163, 54, 67, 0, 17, 58],
+        [744, 163, 52, 69, 0, 15, 59],
+        [378, 163, 52, 71, 0, 15, 60],
+        [430, 163, 52, 71, 0, 15, 59],
+        [271, 163, 53, 72, 0, 15, 58],
+        [1955, 86, 55, 73, 0, 18, 58],
+        [534, 163, 53, 71, 0, 16, 58],
+        [692, 163, 52, 69, 0, 15, 58],
+        [587, 163, 52, 70, 0, 15, 59],
+        [796, 163, 52, 68, 0, 15, 58],
+        [1080, 163, 53, 66, 0, 15, 58],
+        [639, 163, 53, 70, 0, 16, 61],
+        [1733, 86, 52, 73, 0, 17, 64],
+        [1785, 0, 51, 77, 0, 18, 67],
+        [1631, 0, 50, 77, 0, 17, 67],
+        [1427, 0, 50, 78, 0, 17, 68],
+        [1067, 0, 50, 78, 0, 17, 68],
+        [572, 86, 53, 75, 0, 18, 64],
+        [1007, 86, 56, 74, 0, 19, 61],
+        [1677, 86, 56, 73, 0, 19, 60],
+        [1898, 86, 57, 73, 0, 19, 59],
+        [1841, 86, 57, 73, 0, 19, 59],
+        [1785, 86, 56, 73, 0, 19, 59],
+        [633, 0, 102, 86, 0, 19, 72],
+        [531, 0, 102, 86, 0, 19, 72],
+        [102, 0, 102, 86, 0, 19, 72],
+        [735, 0, 124, 86, 0, 19, 72],
+        [321, 0, 102, 86, 0, 19, 72],
+        [0, 0, 102, 86, 0, 19, 72],
+        [423, 0, 108, 86, 0, 19, 72],
+        [204, 0, 117, 86, 0, 19, 72],
+        [1284, 86, 56, 73, 0, 19, 59],
+        [1620, 86, 57, 73, 0, 19, 59],
+        [1340, 86, 57, 73, 0, 19, 59],
+        [1226, 86, 58, 73, 0, 19, 59],
+        [1507, 86, 58, 73, 0, 19, 60],
+        [895, 86, 57, 75, 0, 19, 62],
+        [786, 86, 56, 75, 0, 19, 63],
+        [842, 86, 53, 75, 0, 18, 64],
+        [467, 86, 52, 76, 0, 18, 65],
+        [362, 86, 52, 77, 0, 18, 66],
+        [1168, 0, 52, 78, 0, 18, 67],
+        [1117, 0, 51, 78, 0, 18, 68],
+        [1580, 0, 51, 78, 0, 18, 68],
+        [1477, 0, 51, 78, 0, 18, 68],
+        [414, 86, 53, 77, 0, 18, 65],
+        [625, 86, 54, 75, 0, 18, 62],
+        [1117, 86, 55, 74, 0, 18, 60],
+        [952, 86, 55, 74, 0, 18, 59],
+        [1397, 86, 55, 73, 0, 18, 58],
+        [1452, 86, 55, 73, 0, 18, 58],
+        [217, 163, 54, 72, 0, 19, 57],
+        [0, 163, 53, 72, 0, 18, 57],
+        [53, 163, 54, 72, 0, 18, 57],
+        [324, 163, 54, 72, 0, 18, 57],
+        [162, 163, 55, 72, 0, 18, 57],
+        [1565, 86, 55, 73, 0, 18, 59],
+        [1172, 86, 54, 74, 0, 18, 60],
+        [1063, 86, 54, 74, 0, 18, 61],
+        [679, 86, 54, 75, 0, 18, 62],
+        [733, 86, 53, 75, 0, 18, 63],
+        [519, 86, 53, 76, 0, 18, 65],
+        [1681, 0, 52, 77, 0, 18, 66],
+        [0, 86, 52, 77, 0, 18, 67],
+        [107, 163, 55, 72, 0, 23, 57],
+        [1133, 163, 59, 65, 0, 28, 50],
+        [1388, 163, 61, 62, 0, 30, 48],
+        [1324, 163, 64, 62, 0, 30, 48],
+        [1258, 163, 66, 62, 0, 30, 48],
+        [848, 163, 66, 68, 0, 30, 48],
+        [1192, 163, 66, 65, 0, 30, 48],
+        [1515, 163, 66, 62, 0, 30, 48],
+        [1449, 163, 66, 62, 0, 30, 47],
+        [1581, 163, 65, 60, 0, 29, 45],
+        [1646, 163, 65, 58, 0, 29, 42],
+        [1711, 163, 64, 50, 0, 28, 32],
+        [1775, 163, 69, 43, 0, 27, 23],
+        [1844, 163, 79, 34, 0, 26, 14],
+        [79, 235, 79, 33, 0, 26, 13],
+        [1923, 163, 79, 33, 0, 26, 13],
+        [0, 235, 79, 33, 0, 26, 13],
+        [237, 235, 79, 33, 0, 26, 13],
+        [158, 235, 79, 33, 0, 26, 13],
+        [395, 235, 79, 32, 0, 26, 12],
+        [316, 235, 79, 32, 0, 26, 12],
+        [474, 235, 79, 32, 0, 26, 12],
+        [553, 235, 79, 31, 0, 26, 11]
+    ],
+    "animations": {
+        "defend_start": {"frames": [0, 68, 69, 70, 71, 72]},
+        "all": {"frames": [0]},
+        "move": {"frames": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]},
+        "die_end": {"frames": [109]},
+        "die_start": {"frames": [0, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]},
+        "move_end": {"frames": [22, 34, 35, 36, 37, 38, 39]},
+        "idle": {"frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]},
+        "attack": {"frames": [0, 40, 41, 42, 43, 44, 45, 46, 47, 45, 46, 48, 45, 49, 50, 45, 51, 52, 45, 46, 53, 54, 45, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]},
+        "defend_end": {"frames": [73, 79, 80, 81, 82, 83, 84, 85, 86]},
+        "move_start": {"frames": [0, 20, 21]},
+        "hit": {"frames": [74, 75, 76, 77, 78]},
+        "defend_hold": {"frames": [73]}
+    },
+    "images": ["media/marine.png"]
+};
+
 },{}],24:[function(require,module,exports){module.exports = {
 "images": ["media/foreground.png"],
 "frames": [
@@ -1595,7 +1590,7 @@ module.exports = Vanguard;
         "wall0":[2]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:a528456c83f834fbdbdf1d53706075cd$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:6f0cabd33714ac4e4dd9c59b09a7cd54$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 }
@@ -1867,50 +1862,7 @@ Tiles.create = function(cols, rows) {
 
 module.exports = Tiles;
 
-},{"./tile":10}],19:[function(require,module,exports){var Command = require('./command');
-var Collection = require('../collection');
-
-var Commands = function() {
-    this.initialize.apply(this, arguments);
-};
-
-Commands.prototype = new Collection();
-Commands.prototype.__super = Collection.prototype;
-
-Commands.prototype.initialize = function(data) {
-    this.set.apply(this, arguments);
-    this.__super.initialize.apply(this);
-};
-
-Commands.prototype.get = function(id, fn) {
-    var command = this.__super.get.apply(this, arguments);
-    if (typeof fn === 'function') {
-        if (command) {
-            fn(command);
-        }
-    }
-    return command;
-};
-
-Commands.prototype.set = function(data) {
-    if (typeof data === 'object') {
-        for (var key in data) {
-            if (data.hasOwnProperty(key)) {
-                this.add(key, data[key]);
-            }
-        }
-    }
-
-};
-
-Commands.prototype.add = function(name, options) {
-    var command = new Command(name, options);
-    this.__super.add.call(this, command);
-};
-
-module.exports = Commands;
-
-},{"./command":28,"../collection":29}],18:[function(require,module,exports){var Stat = require('./stat');
+},{"./tile":10}],18:[function(require,module,exports){var Stat = require('./stat');
 
 var Stats = function() {
     this.initialize.apply(this, arguments);
@@ -2024,125 +1976,50 @@ Stats.prototype.each = function(fn) {
 
 module.exports = Stats;
 
-},{"./stat":30}],28:[function(require,module,exports){var Command = function() {
+},{"./stat":28}],19:[function(require,module,exports){var Command = require('./command');
+var Collection = require('../collection');
+
+var Commands = function() {
     this.initialize.apply(this, arguments);
 };
 
-/**
- * Identifier for the command
- * @type {String}
- */
-Command.prototype.id = null;
+Commands.prototype = new Collection();
+Commands.prototype.__super = Collection.prototype;
 
-/**
- * Base value for the damage
- * @type {Number}
- */
-Command.prototype.damage = null;
+Commands.prototype.initialize = function(data) {
+    this.set.apply(this, arguments);
+    this.__super.initialize.apply(this);
+};
 
-/**
- * How far the command can range
- * @type {Number}
- */
-Command.prototype.range = null;
-
-/**
- * The range of the command's affected area
- * @type {Number}
- */
-Command.prototype.splash = null;
-
-/**
- * @param {String} id
- * @param {Number} damage
- * @param {Number} range
- * @param {Object} [options]
- */
-Command.prototype.initialize = function(id, options) {
-    if (id === null) {
-        throw new Error('command id is required');
+Commands.prototype.get = function(id, fn) {
+    var command = this.__super.get.apply(this, arguments);
+    if (typeof fn === 'function') {
+        if (command) {
+            fn(command);
+        }
     }
-    this.id = id;
-    this.cooldown = 0;
-    this.damage = 0;
-    this.range = 0;
-    this.splash = 0;
-    if (typeof options === 'object') {
-        for(var key in options) {
-            if (options.hasOwnProperty(key)) {
-                this[key] = options[key];
+    return command;
+};
+
+Commands.prototype.set = function(data) {
+    if (typeof data === 'object') {
+        for (var key in data) {
+            if (data.hasOwnProperty(key)) {
+                this.add(key, data[key]);
             }
         }
     }
+
 };
 
-Command.prototype.set = function(data) {
-    for(var key in data) {
-        if (data.hasOwnProperty(key)) {
-            this[key] = data[key];
-        }
-    }
+Commands.prototype.add = function(name, options) {
+    var command = new Command(name, options);
+    this.__super.add.call(this, command);
 };
 
-Command.create = function(data, callback) {
-    var command = new Command();
-    command.set(data);
-    callback(null, command);
-};
+module.exports = Commands;
 
-module.exports = Command;
-
-},{}],29:[function(require,module,exports){var Collection = function() {
-    this.initialize();
-};
-
-Collection.prototype.initialize = function() {
-    this._dictionary = {};
-    this.children = [];
-};
-
-Collection.prototype.add = function(object) {
-    if (!object || !object.id) {
-        throw new Error('id is required');
-    }
-    this._dictionary[object.id] = object;
-    this.children.push(object);
-};
-
-Collection.prototype.get = function(id, fn) {
-    return this._dictionary[id];
-};
-
-Collection.prototype.at = function(index) {
-    return this.children[index];
-};
-
-Collection.prototype.first = function() {
-    return this.children[0];
-};
-
-Collection.prototype.remove = function(child) {
-    this.children.splice(this.children.indexOf(child), 1);
-    delete this._dictionary[child.id];
-};
-
-Collection.prototype.each = function(fn) {
-    var child;
-    for (var i=0; i < this.children.length; i++) {
-        child = this.children[i];
-        if (child.name === 'null') {
-            continue;
-        }
-        if (fn(child, i) === false) {
-            break;
-        }
-    };
-};
-
-
-module.exports = Collection;
-
-},{}],30:[function(require,module,exports){var Stat = function() {
+},{"./command":29,"../collection":30}],28:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -2253,6 +2130,124 @@ Stat.prototype.val = function() {
 };
 
 module.exports = Stat;
+
+},{}],29:[function(require,module,exports){var Command = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * Identifier for the command
+ * @type {String}
+ */
+Command.prototype.id = null;
+
+/**
+ * Base value for the damage
+ * @type {Number}
+ */
+Command.prototype.damage = null;
+
+/**
+ * How far the command can range
+ * @type {Number}
+ */
+Command.prototype.range = null;
+
+/**
+ * The range of the command's affected area
+ * @type {Number}
+ */
+Command.prototype.splash = null;
+
+/**
+ * @param {String} id
+ * @param {Number} damage
+ * @param {Number} range
+ * @param {Object} [options]
+ */
+Command.prototype.initialize = function(id, options) {
+    if (id === null) {
+        throw new Error('command id is required');
+    }
+    this.id = id;
+    this.cooldown = 0;
+    this.damage = 0;
+    this.range = 0;
+    this.splash = 0;
+    if (typeof options === 'object') {
+        for(var key in options) {
+            if (options.hasOwnProperty(key)) {
+                this[key] = options[key];
+            }
+        }
+    }
+};
+
+Command.prototype.set = function(data) {
+    for(var key in data) {
+        if (data.hasOwnProperty(key)) {
+            this[key] = data[key];
+        }
+    }
+};
+
+Command.create = function(data, callback) {
+    var command = new Command();
+    command.set(data);
+    callback(null, command);
+};
+
+module.exports = Command;
+
+},{}],30:[function(require,module,exports){var Collection = function() {
+    this.initialize();
+};
+
+Collection.prototype.initialize = function() {
+    this._dictionary = {};
+    this.children = [];
+};
+
+Collection.prototype.add = function(object) {
+    if (!object || !object.id) {
+        throw new Error('id is required');
+    }
+    this._dictionary[object.id] = object;
+    this.children.push(object);
+};
+
+Collection.prototype.get = function(id, fn) {
+    return this._dictionary[id];
+};
+
+Collection.prototype.at = function(index) {
+    return this.children[index];
+};
+
+Collection.prototype.first = function() {
+    return this.children[0];
+};
+
+Collection.prototype.remove = function(child) {
+    this.children.splice(this.children.indexOf(child), 1);
+    delete this._dictionary[child.id];
+};
+
+Collection.prototype.each = function(fn) {
+    var child;
+    for (var i=0; i < this.children.length; i++) {
+        child = this.children[i];
+        if (child.name === 'null') {
+            continue;
+        }
+        if (fn(child, i) === false) {
+            break;
+        }
+    };
+};
+
+
+module.exports = Collection;
 
 },{}],31:[function(require,module,exports){/**
  * @author James Florentino
@@ -3546,7 +3541,192 @@ window.addEventListener('load', function() {
 }).call(this);
 
 })()
-},{}],33:[function(require,module,exports){(function(){/*global createjs */
+},{}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
+var EventEmitter = require('events').EventEmitter;
+var GameEntity = require('./entity');
+var Tile = require('./tiles/tile');
+var _ = require('underscore');
+
+var Game = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Game.rows = 8;
+Game.columns = 10;
+
+Game.prototype = new EventEmitter();
+
+Game.prototype.initialize = function() {
+    this.entities = [];
+    this._entitiesDict = {};
+    this.tiles = new HexTiles(Game.columns, Game.rows);
+};
+
+Game.prototype.addEntity = function(entity) {
+    if (entity instanceof GameEntity) {
+        if (entity.id) {
+            this._entitiesDict[entity.id] = entity;
+            this.entities.push(entity);
+            this.emit('unit:add', entity);
+        } else {
+            throw(new Error('GameEntity requires an ID'));
+        }
+    } else {
+        throw(new Error('Not a valid GameEntity'));
+    }
+};
+
+Game.prototype.removeEntity = function(entity) {
+    var tile = entity.tile;
+    tile.vacate(entity);
+    delete this._entitiesDict[entity.id];
+    this.entities.splice(this.entities.indexOf(entity), 1);
+    this.emit('unit:remove', entity);
+    entity.die();
+};
+
+Game.prototype.createEntity = function(options, callback) {
+    var entity = GameEntity.create(options.id);
+    if (entity) {
+        if (options) {
+            entity.type = options.type;
+            entity.set(options.attributes);
+        }
+        if (typeof callback === 'function') {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.spawnEntity = function(options, fn) {
+    var _this = this;
+    this.createEntity(options, function(entity) {
+        _this.tiles.get(options.x, options.y, function(tile) {
+            entity.move(tile);
+            _this.addEntity(entity);
+            if (typeof fn === 'function') {
+                fn(entity);
+            }
+        });
+    });
+};
+
+Game.prototype.moveEntity = function(entity, tile, sync) {
+    entity.move(tile, sync);
+    this.emit('unit:move', entity, sync);
+};
+
+Game.prototype.getEntity = function(id, callback) {
+    var entity = this._entitiesDict[id];
+
+    if (typeof callback === 'function') {
+        if (entity) {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.eachEntity = function(callback) {
+    _.each(this.entities, callback);
+};
+
+Game.prototype.loadMap = function(tiles) {
+    var _this = this;
+    _.each(tiles, function(t) {
+        _this.tiles.get(t.x, t.y, function(tile) {
+            for(var key in t) {
+                if (t.hasOwnProperty(key)) {
+                    tile[key] = t[key];
+                }
+            }
+        });
+    });
+};
+
+
+Game.prototype.actEntity = function(entity, tile, command, target) {
+    var _this = this;
+    var attackRange = command.range;
+    var splashRange = command.splash;
+    var targets = [];
+    var results = [];
+    var tiles;
+    var p = tile;
+
+    // get the affected units
+    tiles = this.tiles.neighbors(tile, splashRange);
+    tiles = [tile].concat(tiles);
+    tiles = _.filter(tiles, function(tile) {
+        return tile.entities.length > 0 && !tile.has(entity);
+    });
+
+    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
+        var target, result;
+        target = tile.entities[0];
+        if (target.stats.get('health').val() > 0) {
+            result = entity.act(target, command, i);
+            target.damage(result.damage);
+            targets.push({
+                id: target.id,
+                damage: result.damage
+            });
+
+            if (result.status) {
+                results.push({
+                    id: target.id,
+                    status: result.status
+                });
+            }
+        }
+
+    });
+
+    this.emit('unit:act', {
+        id: entity.id,
+        x: tile.x,
+        y: tile.y,
+        type: command.id,
+        targets: targets,
+        results: results
+    });
+};
+
+/** Turn based component **/
+Game.prototype.setTurn = function(entity) {
+    if (this.entities.indexOf(entity) > -1) {
+        this.currentTurn = entity;
+        entity.enable();
+        this.emit('unit:enable', entity);
+    }
+};
+
+Game.prototype.endTurn = function() {
+    var entity = this.currentTurn;
+    if (entity) {
+        entity.disable();
+        this.emit('unit:disable', entity);
+    }
+    this.currentTurn = null;
+};
+
+Game.prototype.nextTurn = function() {
+    this.endTurn();
+};
+
+Game.create = function(callback) {
+    var game = new Game();
+    if (typeof callback === 'function') {
+        callback(null, game);
+    }
+    return game;
+};
+
+
+module.exports = Game;
+
+},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],33:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -3975,8 +4155,6 @@ Client.prototype.unitEvents = function(unit, entity) {
                     return truthy;
                 });
 
-                console.log(targets);
-
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
                     var targetUnit;
                     var targetEntity;
@@ -4030,7 +4208,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                             var splashTiles = game.tiles.neighbors(tile, command.splash);
                             splashTiles = _.filter(splashTiles, function(tile) {
                                 var entities = tile.entities;
-                                return entities.length && !entities[0].isDead();
+                                return entities.length && entities[0] !== entity && !entities[0].isDead();
                             });
                             var targetTile = tile;
                             _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
@@ -4369,192 +4547,7 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":12,"./hexutil":11,"./frames/frames":20,"../game/game":32,"./settings":4,"./unit-classes/marine":25,"./unit-classes/vanguard":27,"./frame-data-offset":13,"../game/wait":14,"underscore":35}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
-var EventEmitter = require('events').EventEmitter;
-var GameEntity = require('./entity');
-var Tile = require('./tiles/tile');
-var _ = require('underscore');
-
-var Game = function() {
-    this.initialize.apply(this, arguments);
-};
-
-Game.rows = 8;
-Game.columns = 10;
-
-Game.prototype = new EventEmitter();
-
-Game.prototype.initialize = function() {
-    this.entities = [];
-    this._entitiesDict = {};
-    this.tiles = new HexTiles(Game.columns, Game.rows);
-};
-
-Game.prototype.addEntity = function(entity) {
-    if (entity instanceof GameEntity) {
-        if (entity.id) {
-            this._entitiesDict[entity.id] = entity;
-            this.entities.push(entity);
-            this.emit('unit:add', entity);
-        } else {
-            throw(new Error('GameEntity requires an ID'));
-        }
-    } else {
-        throw(new Error('Not a valid GameEntity'));
-    }
-};
-
-Game.prototype.removeEntity = function(entity) {
-    var tile = entity.tile;
-    tile.vacate(entity);
-    delete this._entitiesDict[entity.id];
-    this.entities.splice(this.entities.indexOf(entity), 1);
-    this.emit('unit:remove', entity);
-    entity.die();
-};
-
-Game.prototype.createEntity = function(options, callback) {
-    var entity = GameEntity.create(options.id);
-    if (entity) {
-        if (options) {
-            entity.type = options.type;
-            entity.set(options.attributes);
-        }
-        if (typeof callback === 'function') {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.spawnEntity = function(options, fn) {
-    var _this = this;
-    this.createEntity(options, function(entity) {
-        _this.tiles.get(options.x, options.y, function(tile) {
-            entity.move(tile);
-            _this.addEntity(entity);
-            if (typeof fn === 'function') {
-                fn(entity);
-            }
-        });
-    });
-};
-
-Game.prototype.moveEntity = function(entity, tile, sync) {
-    entity.move(tile, sync);
-    this.emit('unit:move', entity, sync);
-};
-
-Game.prototype.getEntity = function(id, callback) {
-    var entity = this._entitiesDict[id];
-
-    if (typeof callback === 'function') {
-        if (entity) {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.eachEntity = function(callback) {
-    _.each(this.entities, callback);
-};
-
-Game.prototype.loadMap = function(tiles) {
-    var _this = this;
-    _.each(tiles, function(t) {
-        _this.tiles.get(t.x, t.y, function(tile) {
-            for(var key in t) {
-                if (t.hasOwnProperty(key)) {
-                    tile[key] = t[key];
-                }
-            }
-        });
-    });
-};
-
-
-Game.prototype.actEntity = function(entity, tile, command, target) {
-    var _this = this;
-    var attackRange = command.range;
-    var splashRange = command.splash;
-    var targets = [];
-    var results = [];
-    var tiles;
-    var p = tile;
-
-    // get the affected units
-    tiles = this.tiles.neighbors(tile, splashRange);
-    tiles = [tile].concat(tiles);
-    tiles = _.filter(tiles, function(tile) {
-        return tile.entities.length > 0 && !tile.has(entity);
-    });
-
-    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
-        var target, result;
-        target = tile.entities[0];
-        if (target.stats.get('health').val() > 0) {
-            result = entity.act(target, command, i);
-            target.damage(result.damage);
-            targets.push({
-                id: target.id,
-                damage: result.damage
-            });
-
-            if (result.status) {
-                results.push({
-                    id: target.id,
-                    status: result.status
-                });
-            }
-        }
-
-    });
-
-    this.emit('unit:act', {
-        id: entity.id,
-        x: tile.x,
-        y: tile.y,
-        type: command.id,
-        targets: targets,
-        results: results
-    });
-};
-
-/** Turn based component **/
-Game.prototype.setTurn = function(entity) {
-    if (this.entities.indexOf(entity) > -1) {
-        this.currentTurn = entity;
-        entity.enable();
-        this.emit('unit:enable', entity);
-    }
-};
-
-Game.prototype.endTurn = function() {
-    var entity = this.currentTurn;
-    if (entity) {
-        entity.disable();
-        this.emit('unit:disable', entity);
-    }
-    this.currentTurn = null;
-};
-
-Game.prototype.nextTurn = function() {
-    this.endTurn();
-};
-
-Game.create = function(callback) {
-    var game = new Game();
-    if (typeof callback === 'function') {
-        callback(null, game);
-    }
-    return game;
-};
-
-
-module.exports = Game;
-
-},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],34:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":20,"../game/game":32,"./settings":4,"./unit-classes/marine":25,"./unit-classes/vanguard":27,"./frame-data-offset":13,"../game/wait":14,"underscore":35}],34:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
 var _ = require('underscore');
 var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
@@ -4710,22 +4703,28 @@ function serverEmulator(socket) {
             return this.wait(time, function() {
                 routes.emit('unit:create', {
                     c: 'create',
-                    id: 'vanguard',
-                    x: 6,
-                    y: 5
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 3,
-                    y: 5
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
                     id: 'marine',
+                    x: 6,
+                    y: 3
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
                     x: 3,
+                    y: 3
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 2,
                     y: 4
                 });
+                //routes.emit('unit:create', {
+                //    c: 'create',
+                //    id: 'marine',
+                //    x: 0,
+                //    y: 4
+                //});
                 //routes.emit('unit:create', {
                 //    c: 'create',
                 //    id: 'marine',

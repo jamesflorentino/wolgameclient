@@ -3,14 +3,14 @@ module.exports = {
         stats: {
             range: 2,
             defense: 50,
-            health: 1000
+            health: 800
         },
         commands: {
             dualshot: {
                 damage: 300,
                 range: 1,
                 cooldown: 0,
-                splash: 1
+                splash: 0
             }
         }
     },
@@ -22,10 +22,10 @@ module.exports = {
         },
         commands: {
             rifleshot: {
-                damage: 500,
+                damage: 250,
                 range: 3,
                 cooldown: 0,
-                splash: 3
+                splash: 0
             }
         }
     }
