@@ -48,7 +48,6 @@ Marine.prototype.moveStart = function() {
 
 Marine.prototype.moveEnd = function() {
     this.animation.gotoAndPlay('move_end');
-    this.__super.moveEnd.apply(this, arguments);
 };
 
 Marine.prototype.actStart = function() {

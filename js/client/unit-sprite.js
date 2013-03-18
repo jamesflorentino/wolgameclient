@@ -40,7 +40,6 @@ UnitSprite.prototype.moveStart = function() {
 };
 
 UnitSprite.prototype.moveEnd = function() {
-    console.log('move end');
     this.emit('move:end');
 };
 

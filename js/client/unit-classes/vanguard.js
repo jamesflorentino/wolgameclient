@@ -37,7 +37,6 @@ Vanguard.prototype.moveStart = function() {
 
 Vanguard.prototype.moveEnd = function() {
     this.animation.gotoAndPlay('move_end');
-    this.__super.moveEnd.apply(this, arguments);
 };
 
 Vanguard.prototype.damageStart = function() {
@@ -67,7 +66,6 @@ Vanguard.prototype.actStart = function() {
 }
 
 Vanguard.prototype.die = function() {
-    console.log('die');
     this.animation.gotoAndPlay('die_start');
 };
 

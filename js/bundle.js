@@ -266,12 +266,17 @@ EventEmitter.prototype.listeners = function(type) {
 },{}],5:[function(require,module,exports){var base = [
     //{ x: 4, y: 0, wall: 1 },
     //{ x: 4, y: 1, wall: 1 },
-    { x: 3, y: 4, wall: 0, type: 'cover0-a', walls: [[3,5]] },
-    { x: 3, y: 5, wall: 0, type: 'cover0-a', walls: [[4,5], [4,6]]},
+    { x: 3, y: 4, defense: 100, wall: 0, type: 'cover0-a', walls: [[3,5]] },
+    { x: 3, y: 5, defense: 1000, wall: 0, type: 'cover0-a', walls: [[4,5], [4,6]]},
+    { x: 2, y: 5, damage: 10 },
     //{ x: 4, y: 2, wall: 1, type: 'wall0' },
     //{ x: 4, y: 3, wall: 1 },
     //{ x: 4, y: 4, wall: 1 },
-    { x: 5, y: 2, wall: 1, type: 'wall0' }
+    { x: 4, y: 0, wall: 1, type: 'wall0' },
+    { x: 4, y: 1, wall: 1, type: 'wall0' },
+    { x: 5, y: 2, wall: 1, type: 'wall0' },
+    { x: 4, y: 7, wall: 1, type: 'wall0' },
+    { x: 4, y: 3, wall: 1, type: 'wall0' }
     //{ x: 4, y: 6, wall: 1 },
     //{ x: 4, y: 7, wall: 1 }
 ];
@@ -501,7 +506,31 @@ Tile.create = function() {
 };
 module.exports = Tile;
 
-},{}],11:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
+},{}],11:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],12:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
 /*global createjs*/
 var Preloader = function() {
     this.manifest = [];
@@ -530,31 +559,7 @@ Preloader.prototype.getResource = function(idOrURL) {
 module.exports = Preloader;
 
 })()
-},{"events":2}],12:[function(require,module,exports){var HexUtil = {
-    WIDTH: 81,
-    HEIGHT: 60,
-    position: function(hex, tile, center) {
-        var coord = this.coord(tile, center);
-        hex.regX = this.WIDTH * 0.5;
-        hex.regY = this.HEIGHT * 0.5;
-        hex.x = coord.x + hex.regX;
-        hex.y = coord.y + hex.regY;
-        return coord;
-    },
-    coord: function(tile, center) {
-        if (tile === undefined) {
-            return null;
-        }
-        return {
-            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
-            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
-        };
-    }
-};
-
-module.exports = HexUtil;
-
-},{}],13:[function(require,module,exports){module.exports = {
+},{"events":2}],13:[function(require,module,exports){module.exports = {
     'wall0': {
         regY: 25,
     },
@@ -573,21 +578,21 @@ module.exports = HexUtil;
         stats: {
             range: 2,
             defense: 50,
-            health: 1000
+            health: 800
         },
         commands: {
             dualshot: {
                 damage: 300,
                 range: 1,
                 cooldown: 0,
-                splash: 1
+                splash: 0
             }
         }
     },
     marine: {
         type: 'marine',
         stats: {
-            range: 2,
+            range: 1,
             splash: 1
         },
         commands: {
@@ -893,6 +898,8 @@ GameEntity.prototype.initialize = function(id) {
     this.stats.add('damage', 100, 100);
     this.stats.add('defense', 0);
     this.stats.add('range', 1, 1);
+    this.stats.add('turnspeed', 0, 100);
+    this.stats.add('turn', 0, 100);
     this.commands = new Commands();
     this.tile = null;
 };
@@ -941,12 +948,42 @@ GameEntity.prototype.die = function() {
     this.emit('die');
 };
 
-GameEntity.prototype.act = function(target, command) {
-    var health = target.stats.get('health').val();
-    var defense = target.stats.get('defense').val();
-    var damage = Math.max(0, command.damage - defense);
-    var status = 'damage';
-    if (health - damage < 0) {
+GameEntity.prototype.isDead = function() {
+    return this.stats.get('health').val() === 0;
+};
+
+/**
+ * The index parameter will be the basis for the splash damage calculation
+ * @param {GameEntity} target entity
+ * @param {Command} command target comand
+ * @param {Number} index
+ */
+GameEntity.prototype.act = function(target, command, index) {
+    var health, defense, damage, status, tile;
+    health = target.stats.get('health').val();
+    defense = target.stats.get('defense').val();
+    damage = command.damage;
+
+    tile = target.tile;
+
+    /** target defense bonuses **/
+    if (typeof tile.defense === 'number') {
+        if (tile.blocked(this.tile)) {
+            defense += tile.defense;
+        }
+    }
+
+    /** entity attack bonuses **/
+    if (typeof this.tile.attack === 'number') {
+        damage += this.tile.attack;
+    }
+
+    // apply splash index bonuses
+    damage = index > 0 ? damage * 0.5 : damage;
+    damage = Math.max(0, damage - defense);
+    status = 'damage';
+
+    if (health - damage <= 0) {
         status = 'death';
     }
     this.emit('act', {
@@ -1026,6 +1063,7 @@ Marine.prototype.moveStart = function() {
 
 Marine.prototype.moveEnd = function() {
     this.animation.gotoAndPlay('move_end');
+    this.__super.moveEnd.apply(this, arguments);
 };
 
 Marine.prototype.actStart = function() {
@@ -1101,6 +1139,7 @@ Vanguard.prototype.moveStart = function() {
 
 Vanguard.prototype.moveEnd = function() {
     this.animation.gotoAndPlay('move_end');
+    this.__super.moveEnd.apply(this, arguments);
 };
 
 Vanguard.prototype.damageStart = function() {
@@ -1130,6 +1169,7 @@ Vanguard.prototype.actStart = function() {
 }
 
 Vanguard.prototype.die = function() {
+    console.log('die');
     this.animation.gotoAndPlay('die_start');
 };
 
@@ -1602,6 +1642,7 @@ UnitSprite.prototype.moveStart = function() {
 };
 
 UnitSprite.prototype.moveEnd = function() {
+    console.log('move end');
     this.emit('move:end');
 };
 
@@ -1826,7 +1867,50 @@ Tiles.create = function(cols, rows) {
 
 module.exports = Tiles;
 
-},{"./tile":10}],18:[function(require,module,exports){var Stat = require('./stat');
+},{"./tile":10}],19:[function(require,module,exports){var Command = require('./command');
+var Collection = require('../collection');
+
+var Commands = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Commands.prototype = new Collection();
+Commands.prototype.__super = Collection.prototype;
+
+Commands.prototype.initialize = function(data) {
+    this.set.apply(this, arguments);
+    this.__super.initialize.apply(this);
+};
+
+Commands.prototype.get = function(id, fn) {
+    var command = this.__super.get.apply(this, arguments);
+    if (typeof fn === 'function') {
+        if (command) {
+            fn(command);
+        }
+    }
+    return command;
+};
+
+Commands.prototype.set = function(data) {
+    if (typeof data === 'object') {
+        for (var key in data) {
+            if (data.hasOwnProperty(key)) {
+                this.add(key, data[key]);
+            }
+        }
+    }
+
+};
+
+Commands.prototype.add = function(name, options) {
+    var command = new Command(name, options);
+    this.__super.add.call(this, command);
+};
+
+module.exports = Commands;
+
+},{"./command":28,"../collection":29}],18:[function(require,module,exports){var Stat = require('./stat');
 
 var Stats = function() {
     this.initialize.apply(this, arguments);
@@ -1940,50 +2024,125 @@ Stats.prototype.each = function(fn) {
 
 module.exports = Stats;
 
-},{"./stat":28}],19:[function(require,module,exports){var Command = require('./command');
-var Collection = require('../collection');
-
-var Commands = function() {
+},{"./stat":30}],28:[function(require,module,exports){var Command = function() {
     this.initialize.apply(this, arguments);
 };
 
-Commands.prototype = new Collection();
-Commands.prototype.__super = Collection.prototype;
+/**
+ * Identifier for the command
+ * @type {String}
+ */
+Command.prototype.id = null;
 
-Commands.prototype.initialize = function(data) {
-    this.set.apply(this, arguments);
-    this.__super.initialize.apply(this);
-};
+/**
+ * Base value for the damage
+ * @type {Number}
+ */
+Command.prototype.damage = null;
 
-Commands.prototype.get = function(id, fn) {
-    var command = this.__super.get.apply(this, arguments);
-    if (typeof fn === 'function') {
-        if (command) {
-            fn(command);
-        }
+/**
+ * How far the command can range
+ * @type {Number}
+ */
+Command.prototype.range = null;
+
+/**
+ * The range of the command's affected area
+ * @type {Number}
+ */
+Command.prototype.splash = null;
+
+/**
+ * @param {String} id
+ * @param {Number} damage
+ * @param {Number} range
+ * @param {Object} [options]
+ */
+Command.prototype.initialize = function(id, options) {
+    if (id === null) {
+        throw new Error('command id is required');
     }
-    return command;
-};
-
-Commands.prototype.set = function(data) {
-    if (typeof data === 'object') {
-        for (var key in data) {
-            if (data.hasOwnProperty(key)) {
-                this.add(key, data[key]);
+    this.id = id;
+    this.cooldown = 0;
+    this.damage = 0;
+    this.range = 0;
+    this.splash = 0;
+    if (typeof options === 'object') {
+        for(var key in options) {
+            if (options.hasOwnProperty(key)) {
+                this[key] = options[key];
             }
         }
     }
-
 };
 
-Commands.prototype.add = function(name, options) {
-    var command = new Command(name, options);
-    this.__super.add.call(this, command);
+Command.prototype.set = function(data) {
+    for(var key in data) {
+        if (data.hasOwnProperty(key)) {
+            this[key] = data[key];
+        }
+    }
 };
 
-module.exports = Commands;
+Command.create = function(data, callback) {
+    var command = new Command();
+    command.set(data);
+    callback(null, command);
+};
 
-},{"./command":29,"../collection":30}],28:[function(require,module,exports){var Stat = function() {
+module.exports = Command;
+
+},{}],29:[function(require,module,exports){var Collection = function() {
+    this.initialize();
+};
+
+Collection.prototype.initialize = function() {
+    this._dictionary = {};
+    this.children = [];
+};
+
+Collection.prototype.add = function(object) {
+    if (!object || !object.id) {
+        throw new Error('id is required');
+    }
+    this._dictionary[object.id] = object;
+    this.children.push(object);
+};
+
+Collection.prototype.get = function(id, fn) {
+    return this._dictionary[id];
+};
+
+Collection.prototype.at = function(index) {
+    return this.children[index];
+};
+
+Collection.prototype.first = function() {
+    return this.children[0];
+};
+
+Collection.prototype.remove = function(child) {
+    this.children.splice(this.children.indexOf(child), 1);
+    delete this._dictionary[child.id];
+};
+
+Collection.prototype.each = function(fn) {
+    var child;
+    for (var i=0; i < this.children.length; i++) {
+        child = this.children[i];
+        if (child.name === 'null') {
+            continue;
+        }
+        if (fn(child, i) === false) {
+            break;
+        }
+    };
+};
+
+
+module.exports = Collection;
+
+},{}],30:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -2094,124 +2253,6 @@ Stat.prototype.val = function() {
 };
 
 module.exports = Stat;
-
-},{}],29:[function(require,module,exports){var Command = function() {
-    this.initialize.apply(this, arguments);
-};
-
-/**
- * Identifier for the command
- * @type {String}
- */
-Command.prototype.id = null;
-
-/**
- * Base value for the damage
- * @type {Number}
- */
-Command.prototype.damage = null;
-
-/**
- * How far the command can range
- * @type {Number}
- */
-Command.prototype.range = null;
-
-/**
- * The range of the command's affected area
- * @type {Number}
- */
-Command.prototype.splash = null;
-
-/**
- * @param {String} id
- * @param {Number} damage
- * @param {Number} range
- * @param {Object} [options]
- */
-Command.prototype.initialize = function(id, options) {
-    if (id === null) {
-        throw new Error('command id is required');
-    }
-    this.id = id;
-    this.cooldown = 0;
-    this.damage = 0;
-    this.range = 0;
-    this.splash = 0;
-    if (typeof options === 'object') {
-        for(var key in options) {
-            if (options.hasOwnProperty(key)) {
-                this[key] = options[key];
-            }
-        }
-    }
-};
-
-Command.prototype.set = function(data) {
-    for(var key in data) {
-        if (data.hasOwnProperty(key)) {
-            this[key] = data[key];
-        }
-    }
-};
-
-Command.create = function(data, callback) {
-    var command = new Command();
-    command.set(data);
-    callback(null, command);
-};
-
-module.exports = Command;
-
-},{}],30:[function(require,module,exports){var Collection = function() {
-    this.initialize();
-};
-
-Collection.prototype.initialize = function() {
-    this._dictionary = {};
-    this.children = [];
-};
-
-Collection.prototype.add = function(object) {
-    if (!object || !object.id) {
-        throw new Error('id is required');
-    }
-    this._dictionary[object.id] = object;
-    this.children.push(object);
-};
-
-Collection.prototype.get = function(id, fn) {
-    return this._dictionary[id];
-};
-
-Collection.prototype.at = function(index) {
-    return this.children[index];
-};
-
-Collection.prototype.first = function() {
-    return this.children[0];
-};
-
-Collection.prototype.remove = function(child) {
-    this.children.splice(this.children.indexOf(child), 1);
-    delete this._dictionary[child.id];
-};
-
-Collection.prototype.each = function(fn) {
-    var child;
-    for (var i=0; i < this.children.length; i++) {
-        child = this.children[i];
-        if (child.name === 'null') {
-            continue;
-        }
-        if (fn(child, i) === false) {
-            break;
-        }
-    };
-};
-
-
-module.exports = Collection;
 
 },{}],31:[function(require,module,exports){/**
  * @author James Florentino
@@ -3596,7 +3637,12 @@ Client.prototype.initialize = function(game) {
                     var coord = HexUtil.coord(target.entity.tile, true);
                     var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
                     var direction = unit.direction;
-                    Tween.get(unit.container).to({
+                    Tween.get(unit.container)
+                    .wait(i * 50)
+                    .call(function() {
+                        unit.damage();
+                    })
+                    .to({
                         scaleX: 1.15 * direction,
                         scaleY: 1.15,
                         x: posX
@@ -3604,144 +3650,8 @@ Client.prototype.initialize = function(game) {
                         scaleX: 1 * direction,
                         scaleY: 1,
                         x: coord.x
-                    }, 300, Ease.backOut);
-                    unit.damage();
-                });
-            });
-
-            _.each(data.targets, function(obj) {
-                var id = obj.id;
-                var damage = obj.damage;
-                _this.game.getEntity(id, function(entity) {
-                    _this.getUnit(id, function(unit) {
-                        _this.createTile('hex_target', entity.tile, function(tileSprite) {
-                            targets.push({
-                                unit: unit,
-                                entity: entity,
-                                damage: damage
-                            });
-                            tileSprites.push(tileSprite);
-                            unit.damageStart();
-                        });
-                    });
-                });
-            });
-
-
-            unit.actStart();
-        });
-    });
-};
-
-Client.prototype.setScene = function(canvas, callback) {
-    var _this = this;
-    this.layers = {};
-    this.stage = new createjs.Stage(canvas);
-    createjs.Touch.enable(this.stage);
-    _this.resource('background', function(err, backgroundImage){ 
-        _this.setSpriteSheets(function() {
-            _this.setBackground(backgroundImage, function() {
-                _this.initializeLayers(function(),33:[function(require,module,exports){(function(){/*global createjs */
-var Preloader = require('./Preloader');
-var HexUtil = require('./hexutil');
-var frames = require('./frames/frames'); // spriteSheet frameData
-var Game = require('../game/game');
-var settings = require('./settings');
-var EventEmitter = require('events').EventEmitter;
-var spriteClasses = {
-    marine: require('./unit-classes/marine'),
-    vanguard: require('./unit-classes/vanguard')
-};
-var frameDataOffset = require('./frame-data-offset');
-var _ = require('underscore');
-var Ease = createjs.Ease;
-var Tween = createjs.Tween;
-var wait = require('../game/wait');
-
-var Client = function(game) {
-    this.initialize.apply(this, arguments);
-};
-
-Client.prototype = new EventEmitter();
-
-Client.prototype.initialize = function(game) {
-    var _this = this;
-    var turnRoutes = new EventEmitter();
-
-    this.game = game;
-    this.units = {};
-    this.preloader = new Preloader();
-
-    turnRoutes.on('result:death', function(unit) {
-        unit.die();
-    });
-
-    turnRoutes.on('result:damage', function(unit) {
-        unit.damageEnd();
-    });
-
-    this.game.on('unit:add', function(entity) {
-        _this.createUnit(entity, function(unit) {
-            //unit.container.addEventListener('click', function() {
-            //    _this.emit('unit:info', entity);
-            //});
-        });
-    });
-
-    this.game.on('unit:act', function(data) {
-        _this.getUnit(data.id, function(unit) {
-            var parent = unit;
-            var targets = [];
-            var tileSprites = [];
-            /** Tell the active unit to which direction to face **/
-            _this.getUnit(data.targets[0].id, function(unit) {
-                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
-            });
-            _.each(data.targets, function(target) {
-                _this.getUnit(target.id, function(unit) {
-                    unit.face(unit.container.x < parent.container.x ? 'right' : 'left');
-                });
-            });
-            // Make sure they're all clean
-            unit.removeAllListeners('act:end');
-            unit.removeAllListeners('act');
-
-            unit.on('act:end', function() {
-                unit.removeAllListeners('act:end');
-                unit.removeAllListeners('act');
-                _.each(targets, function(target) {
-                    var entity = target.entity;
-                    var unit = target.unit;
-                    var damage = target.damage;
-                    _this.showDamage(unit, damage);
-                });
-
-                _.each(data.results, function(result) {
-                    _this.getUnit(result.id, function(unit) {
-                        turnRoutes.emit('result:' + result.status, unit);
-                    });
-                });
-                _.each(tileSprites, function(tileSprite) {
-                    tileSprite.parent.removeChild(tileSprite);
-                });
-            });
-
-            unit.on('act', function() {
-                _.each(targets, function(target, i) {
-                    var unit = target.unit;
-                    var coord = HexUtil.coord(target.entity.tile, true);
-                    var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
-                    var direction = unit.direction;
-                    Tween.get(unit.container).to({
-                        scaleX: 1.15 * direction,
-                        scaleY: 1.15,
-                        x: posX
-                    }).to({
-                        scaleX: 1 * direction,
-                        scaleY: 1,
-                        x: coord.x
-                    }, 300, Ease.backOut);
-                    unit.damage();
+                    }, 300, Ease.backOut)
+                    ;
                 });
             });
 
@@ -3991,12 +3901,12 @@ Client.prototype.unitEvents = function(unit, entity) {
 
     unit.on('tile:select', function inputSelect() {
         if (_this.game.currentTurn === entity) {
-            unit.emit('tile:move');
-            unit.emit('tile:act');
+            unit.emit('tile:select:move');
+            unit.emit('tile:select:act');
         }
     });
 
-    unit.on('tile:move', function() {
+    unit.on('tile:select:move', function() {
         var moveTiles;
         if (unit.tileSprites) {
             unit.emit('tiles:hide:path');
@@ -4046,7 +3956,7 @@ Client.prototype.unitEvents = function(unit, entity) {
         }
     });
 
-    unit.on('tile:act', function(command) {
+    unit.on('tile:select:act', function(command) {
         var targets;
         if (command || (command = entity.commands.first())) {
             if (unit.tileSpritesTarget) {
@@ -4064,6 +3974,8 @@ Client.prototype.unitEvents = function(unit, entity) {
                     });
                     return truthy;
                 });
+
+                console.log(targets);
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
                     var targetUnit;
@@ -4118,14 +4030,17 @@ Client.prototype.unitEvents = function(unit, entity) {
                             var splashTiles = game.tiles.neighbors(tile, command.splash);
                             splashTiles = _.filter(splashTiles, function(tile) {
                                 var entities = tile.entities;
-                                return entities.length;
+                                return entities.length && !entities[0].isDead();
                             });
+                            var targetTile = tile;
                             _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
                                 unit.tileSpritesTargetMark.push(tileSprite);
+                                var linePath = _this.createAttackLinePath(targetTile, tile);
+                                unit.tileSpritesTargetMark.push(linePath);
                             });
                         });
 
-                        var linePath = _this.createLinePath(entity.tile, tile);
+                        var linePath = _this.createAttackLinePath(entity.tile, tile);
                         unit.tileSpritesTargetMark.push(linePath);
                         unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
                     });
@@ -4244,17 +4159,19 @@ Client.prototype.createTile = function(name, tile, callback) {
     });
 };
 
-Client.prototype.createLinePath = function(tileA, tileB) {
+Client.prototype.createAttackLinePath = function(tileA, tileB) {
     var graphics = new createjs.Graphics();
     var linePath = new createjs.Shape(graphics);
     var coordA = HexUtil.coord(tileA, true);
     var coordB = HexUtil.coord(tileB, true);
     graphics
-        .beginFill('rgba(255,10,0,0.5)')
-        .setStrokeStyle(10, 'round')
+        //.beginStroke('white')
+        //.beginFill('white')
+        .setStrokeStyle(1, 'round')
+        .beginStroke('rgba(255,10,0,0.75)')
+        .beginFill('rgba(255,10,0,0.25)')
         .drawEllipse(coordA.x - 13, coordA.y - 7, 30, 15)
         .closePath()
-        .setStrokeStyle(1, 'round')
         .drawEllipse(coordA.x - 10, coordA.y - 5, 20, 10)
         ;
 
@@ -4452,7 +4369,192 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":20,"../game/game":32,"./settings":4,"./unit-classes/marine":25,"./unit-classes/vanguard":27,"./frame-data-offset":13,"../game/wait":14,"underscore":35}],34:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+},{"events":2,"./Preloader":12,"./hexutil":11,"./frames/frames":20,"../game/game":32,"./settings":4,"./unit-classes/marine":25,"./unit-classes/vanguard":27,"./frame-data-offset":13,"../game/wait":14,"underscore":35}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
+var EventEmitter = require('events').EventEmitter;
+var GameEntity = require('./entity');
+var Tile = require('./tiles/tile');
+var _ = require('underscore');
+
+var Game = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Game.rows = 8;
+Game.columns = 10;
+
+Game.prototype = new EventEmitter();
+
+Game.prototype.initialize = function() {
+    this.entities = [];
+    this._entitiesDict = {};
+    this.tiles = new HexTiles(Game.columns, Game.rows);
+};
+
+Game.prototype.addEntity = function(entity) {
+    if (entity instanceof GameEntity) {
+        if (entity.id) {
+            this._entitiesDict[entity.id] = entity;
+            this.entities.push(entity);
+            this.emit('unit:add', entity);
+        } else {
+            throw(new Error('GameEntity requires an ID'));
+        }
+    } else {
+        throw(new Error('Not a valid GameEntity'));
+    }
+};
+
+Game.prototype.removeEntity = function(entity) {
+    var tile = entity.tile;
+    tile.vacate(entity);
+    delete this._entitiesDict[entity.id];
+    this.entities.splice(this.entities.indexOf(entity), 1);
+    this.emit('unit:remove', entity);
+    entity.die();
+};
+
+Game.prototype.createEntity = function(options, callback) {
+    var entity = GameEntity.create(options.id);
+    if (entity) {
+        if (options) {
+            entity.type = options.type;
+            entity.set(options.attributes);
+        }
+        if (typeof callback === 'function') {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.spawnEntity = function(options, fn) {
+    var _this = this;
+    this.createEntity(options, function(entity) {
+        _this.tiles.get(options.x, options.y, function(tile) {
+            entity.move(tile);
+            _this.addEntity(entity);
+            if (typeof fn === 'function') {
+                fn(entity);
+            }
+        });
+    });
+};
+
+Game.prototype.moveEntity = function(entity, tile, sync) {
+    entity.move(tile, sync);
+    this.emit('unit:move', entity, sync);
+};
+
+Game.prototype.getEntity = function(id, callback) {
+    var entity = this._entitiesDict[id];
+
+    if (typeof callback === 'function') {
+        if (entity) {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.eachEntity = function(callback) {
+    _.each(this.entities, callback);
+};
+
+Game.prototype.loadMap = function(tiles) {
+    var _this = this;
+    _.each(tiles, function(t) {
+        _this.tiles.get(t.x, t.y, function(tile) {
+            for(var key in t) {
+                if (t.hasOwnProperty(key)) {
+                    tile[key] = t[key];
+                }
+            }
+        });
+    });
+};
+
+
+Game.prototype.actEntity = function(entity, tile, command, target) {
+    var _this = this;
+    var attackRange = command.range;
+    var splashRange = command.splash;
+    var targets = [];
+    var results = [];
+    var tiles;
+    var p = tile;
+
+    // get the affected units
+    tiles = this.tiles.neighbors(tile, splashRange);
+    tiles = [tile].concat(tiles);
+    tiles = _.filter(tiles, function(tile) {
+        return tile.entities.length > 0 && !tile.has(entity);
+    });
+
+    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
+        var target, result;
+        target = tile.entities[0];
+        if (target.stats.get('health').val() > 0) {
+            result = entity.act(target, command, i);
+            target.damage(result.damage);
+            targets.push({
+                id: target.id,
+                damage: result.damage
+            });
+
+            if (result.status) {
+                results.push({
+                    id: target.id,
+                    status: result.status
+                });
+            }
+        }
+
+    });
+
+    this.emit('unit:act', {
+        id: entity.id,
+        x: tile.x,
+        y: tile.y,
+        type: command.id,
+        targets: targets,
+        results: results
+    });
+};
+
+/** Turn based component **/
+Game.prototype.setTurn = function(entity) {
+    if (this.entities.indexOf(entity) > -1) {
+        this.currentTurn = entity;
+        entity.enable();
+        this.emit('unit:enable', entity);
+    }
+};
+
+Game.prototype.endTurn = function() {
+    var entity = this.currentTurn;
+    if (entity) {
+        entity.disable();
+        this.emit('unit:disable', entity);
+    }
+    this.currentTurn = null;
+};
+
+Game.prototype.nextTurn = function() {
+    this.endTurn();
+};
+
+Game.create = function(callback) {
+    var game = new Game();
+    if (typeof callback === 'function') {
+        callback(null, game);
+    }
+    return game;
+};
+
+
+module.exports = Game;
+
+},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],34:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
 var _ = require('underscore');
 var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
@@ -4471,13 +4573,23 @@ function serverEmulator(socket) {
     });
 
     routes.on('unit:create', function unitCreate(data) {
-        game.spawnEntity({
-            id: _.uniqueId('unit'),
-            type: data.id,
-            attributes: unitTypes[data.id],
-            x: data.x,
-            y: data.y
-        });
+        var unitType = unitTypes[data.id];
+        if (unitType) {
+            game.spawnEntity({
+                id: _.uniqueId('unit'),
+                type: data.id,
+                attributes: unitTypes[data.id],
+                x: data.x,
+                y: data.y
+            });
+        } else {
+            socket.emit('warning', {
+                error: 'Unknown entity: ' + data.id,
+                message: 'You tried to create an unknown entity. ' +
+                    'If you are trying to see loopholes, ' +
+                    'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
+            })
+        }
     });
 
     routes.on('unit:act', function unitAct(data) {
@@ -4599,14 +4711,14 @@ function serverEmulator(socket) {
                 routes.emit('unit:create', {
                     c: 'create',
                     id: 'vanguard',
-                    x: 2,
+                    x: 6,
                     y: 5
                 });
                 routes.emit('unit:create', {
                     c: 'create',
                     id: 'vanguard',
-                    x: 4,
-                    y: 4
+                    x: 3,
+                    y: 5
                 });
                 routes.emit('unit:create', {
                     c: 'create',
@@ -4614,6 +4726,12 @@ function serverEmulator(socket) {
                     x: 3,
                     y: 4
                 });
+                //routes.emit('unit:create', {
+                //    c: 'create',
+                //    id: 'marine',
+                //    x: 3,
+                //    y: 3
+                //});
             });
         };
 
