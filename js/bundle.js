@@ -267,7 +267,7 @@ EventEmitter.prototype.listeners = function(type) {
     //{ x: 4, y: 0, wall: 1 },
     //{ x: 4, y: 1, wall: 1 },
     { x: 3, y: 4, wall: 0, type: 'cover0-a', walls: [[3,5]] },
-    { x: 3, y: 5, wall: 0, type: 'cover0-a' },
+    { x: 3, y: 5, wall: 0, type: 'cover0-a', walls: [[4,5], [4,6]]},
     //{ x: 4, y: 2, wall: 1, type: 'wall0' },
     //{ x: 4, y: 3, wall: 1 },
     //{ x: 4, y: 4, wall: 1 },
@@ -578,7 +578,7 @@ module.exports = HexUtil;
         commands: {
             dualshot: {
                 damage: 300,
-                range: 2,
+                range: 1,
                 cooldown: 0,
                 splash: 1
             }
@@ -595,7 +595,7 @@ module.exports = HexUtil;
                 damage: 500,
                 range: 3,
                 cooldown: 0,
-                splash: 0
+                splash: 3
             }
         }
     }
@@ -3505,135 +3505,196 @@ window.addEventListener('load', function() {
 }).call(this);
 
 })()
-},{}],33:[function(require,module,exports){(function(){/*global createjs */
-var Preloader = require('./Preloader');
-var HexUtil = require('./hexutil');
-var frames = require('./frames/frames'); // spriteSheet frameData
-var Game = require('../game/game');
-var settings = require('./settings');
+},{}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
 var EventEmitter = require('events').EventEmitter;
-var spriteClasses = {
-    marine: require('./unit-classes/marine'),
-    vanguard: require('./unit-classes/vanguard')
-};
-var frameDataOffset = require('./frame-data-offset');
+var GameEntity = require('./entity');
+var Tile = require('./tiles/tile');
 var _ = require('underscore');
-var Ease = createjs.Ease;
-var Tween = createjs.Tween;
-var wait = require('../game/wait');
 
-var Client = function(game) {
+var Game = function() {
     this.initialize.apply(this, arguments);
 };
 
-Client.prototype = new EventEmitter();
+Game.rows = 8;
+Game.columns = 10;
 
-Client.prototype.initialize = function(game) {
+Game.prototype = new EventEmitter();
+
+Game.prototype.initialize = function() {
+    this.entities = [];
+    this._entitiesDict = {};
+    this.tiles = new HexTiles(Game.columns, Game.rows);
+};
+
+Game.prototype.addEntity = function(entity) {
+    if (entity instanceof GameEntity) {
+        if (entity.id) {
+            this._entitiesDict[entity.id] = entity;
+            this.entities.push(entity);
+            this.emit('unit:add', entity);
+        } else {
+            throw(new Error('GameEntity requires an ID'));
+        }
+    } else {
+        throw(new Error('Not a valid GameEntity'));
+    }
+};
+
+Game.prototype.removeEntity = function(entity) {
+    var tile = entity.tile;
+    tile.vacate(entity);
+    delete this._entitiesDict[entity.id];
+    this.entities.splice(this.entities.indexOf(entity), 1);
+    this.emit('unit:remove', entity);
+    entity.die();
+};
+
+Game.prototype.createEntity = function(options, callback) {
+    var entity = GameEntity.create(options.id);
+    if (entity) {
+        if (options) {
+            entity.type = options.type;
+            entity.set(options.attributes);
+        }
+        if (typeof callback === 'function') {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.spawnEntity = function(options, fn) {
     var _this = this;
-    var turnRoutes = new EventEmitter();
-
-    this.game = game;
-    this.units = {};
-    this.preloader = new Preloader();
-
-    turnRoutes.on('result:death', function(unit) {
-        unit.die();
-    });
-
-    turnRoutes.on('result:damage', function(unit) {
-        unit.damageEnd();
-    });
-
-    this.game.on('unit:add', function(entity) {
-        _this.createUnit(entity, function(unit) {
-            //unit.container.addEventListener('click', function() {
-            //    _this.emit('unit:info', entity);
-            //});
-        });
-    });
-
-    this.game.on('unit:act', function(data) {
-        _this.getUnit(data.id, function(unit) {
-            var targets = [];
-            var tileSprites = [];
-            // Make sure they're all clean
-            unit.removeAllListeners('act:end');
-            unit.removeAllListeners('act');
-
-            unit.on('act:end', function() {
-                unit.removeAllListeners('act:end');
-                unit.removeAllListeners('act');
-                _.each(targets, function(target) {
-                    var entity = target.entity;
-                    var unit = target.unit;
-                    var damage = target.damage;
-                    _this.showDamage(unit, damage);
-                });
-
-                _.each(data.results, function(result) {
-                    _this.getUnit(result.id, function(unit) {
-                        turnRoutes.emit('result:' + result.status, unit);
-                    });
-                });
-                _.each(tileSprites, function(tileSprite) {
-                    tileSprite.parent.removeChild(tileSprite);
-                });
-            });
-
-            unit.on('act', function() {
-                var parent = unit;
-                _.each(targets, function(target, i) {
-                    var unit = target.unit;
-                    var coord = HexUtil.coord(target.entity.tile, true);
-                    var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
-                    var direction = unit.direction;
-                    Tween.get(unit.container).to({
-                        scaleX: 1.15 * direction,
-                        scaleY: 1.15,
-                        x: posX
-                    }).to({
-                        scaleX: 1 * direction,
-                        scaleY: 1,
-                        x: coord.x
-                    }, 300, Ease.backOut);
-                    unit.damage();
-                });
-            });
-            _.each(data.targets, function(obj) {
-                var id = obj.id;
-                var damage = obj.damage;
-                _this.game.getEntity(id, function(entity) {
-                    _this.getUnit(id, function(unit) {
-                        _this.createTile('hex_target', entity.tile, function(tileSprite) {
-                            targets.push({
-                                unit: unit,
-                                entity: entity,
-                                damage: damage
-                            });
-                            tileSprites.push(tileSprite);
-                            unit.damageStart();
-                        });
-                    });
-                });
-            });
-
-
-            unit.actStart();
+    this.createEntity(options, function(entity) {
+        _this.tiles.get(options.x, options.y, function(tile) {
+            entity.move(tile);
+            _this.addEntity(entity);
+            if (typeof fn === 'function') {
+                fn(entity);
+            }
         });
     });
 };
 
-Client.prototype.setScene = function(canvas, callback) {
+Game.prototype.moveEntity = function(entity, tile, sync) {
+    entity.move(tile, sync);
+    this.emit('unit:move', entity, sync);
+};
+
+Game.prototype.getEntity = function(id, callback) {
+    var entity = this._entitiesDict[id];
+
+    if (typeof callback === 'function') {
+        if (entity) {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.eachEntity = function(callback) {
+    _.each(this.entities, callback);
+};
+
+Game.prototype.loadMap = function(tiles) {
     var _this = this;
-    this.layers = {};
-    this.stage = new createjs.Stage(canvas);
-    createjs.Touch.enable(this.stage);
-    _this.resource('background', function(err, backgroundImage){ 
-        _this.setSpriteSheets(function() {
-            _this.setBackground(backgroundImage, function() {
-                _this.initializeLayers(function() {
-                    _this.setTiles(_this.game.tiles, function() {
-                        _this.game.on('tiles:conf,33:[function(require,module,exports){(function(){/*global createjs */
+    _.each(tiles, function(t) {
+        _this.tiles.get(t.x, t.y, function(tile) {
+            for(var key in t) {
+                if (t.hasOwnProperty(key)) {
+                    tile[key] = t[key];
+                }
+            }
+        });
+    });
+};
+
+
+/**
+ * Issue a command to an entity to a targetted tile with a particular command
+ */
+Game.prototype.actEntity = function(entity, tile, command, target) {
+    /** do damage calculation **/
+    var _this = this;
+    var attackRange = command.range;
+    var splashRange = command.splash;
+    var targets = [];
+    var results = [];
+    var tiles;
+
+    tiles = this.tiles.neighbors(tile, splashRange);
+    tiles = [tile].concat(tiles);
+    tiles = _.filter(tiles, function(tile) {
+        return tile.entities.length > 0 && !tile.has(entity);
+    });
+
+    /** Only include tiles with units  **/
+    //tiles = [tile].concat(tiles);
+    //tiles = _.filter(tiles, function(tile) {
+    //    return tile.entities.length > 0 && !tile.has(entity);
+    //});
+
+    _.each(tiles, function(tile) {
+        var target = tile.entities[0];
+        var result = entity.act(target, command);
+        target.damage(result.damage);
+        targets.push({
+            id: target.id,
+            damage: result.damage
+        });
+
+        if (result.status) {
+            results.push({
+                id: target.id,
+                status: result.status
+            });
+        }
+    });
+
+    this.emit('unit:act', {
+        id: entity.id,
+        x: tile.x,
+        y: tile.y,
+        type: command.id,
+        targets: targets,
+        results: results
+    });
+};
+
+/** Turn based component **/
+Game.prototype.setTurn = function(entity) {
+    if (this.entities.indexOf(entity) > -1) {
+        this.currentTurn = entity;
+        entity.enable();
+        this.emit('unit:enable', entity);
+    }
+};
+
+Game.prototype.endTurn = function() {
+    var entity = this.currentTurn;
+    if (entity) {
+        entity.disable();
+        this.emit('unit:disable', entity);
+    }
+    this.currentTurn = null;
+};
+
+Game.prototype.nextTurn = function() {
+    this.endTurn();
+};
+
+Game.create = function(callback) {
+    var game = new Game();
+    if (typeof callback === 'function') {
+        callback(null, game);
+    }
+    return game;
+};
+
+
+module.exports = Game;
+
+},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],33:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -4451,8 +4512,9 @@ function serverEmulator(socket) {
         game.getEntity(data.id, function(entity) {
             game.tiles.get(data.x, data.y, function(tile) {
                 entity.commands.get(data.command, function(command) {
-                    var target = game.getEntity(data.target);
-                    game.actEntity(entity, tile, command, target);
+                    game.getEntity(data.target, function(target) {
+                        game.actEntity(entity, tile, command, target);
+                    });
                 });
             });
         });
@@ -4564,12 +4626,6 @@ function serverEmulator(socket) {
             return this.wait(time, function() {
                 routes.emit('unit:create', {
                     c: 'create',
-                    id: 'marine',
-                    x: 3,
-                    y: 4
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
                     id: 'vanguard',
                     x: 2,
                     y: 5
@@ -4578,6 +4634,12 @@ function serverEmulator(socket) {
                     c: 'create',
                     id: 'vanguard',
                     x: 4,
+                    y: 4
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'marine',
+                    x: 3,
                     y: 4
                 });
             });

@@ -30,8 +30,9 @@ function serverEmulator(socket) {
         game.getEntity(data.id, function(entity) {
             game.tiles.get(data.x, data.y, function(tile) {
                 entity.commands.get(data.command, function(command) {
-                    var target = game.getEntity(data.target);
-                    game.actEntity(entity, tile, command, target);
+                    game.getEntity(data.target, function(target) {
+                        game.actEntity(entity, tile, command, target);
+                    });
                 });
             });
         });
@@ -143,12 +144,6 @@ function serverEmulator(socket) {
             return this.wait(time, function() {
                 routes.emit('unit:create', {
                     c: 'create',
-                    id: 'marine',
-                    x: 3,
-                    y: 4
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
                     id: 'vanguard',
                     x: 2,
                     y: 5
@@ -157,6 +152,12 @@ function serverEmulator(socket) {
                     c: 'create',
                     id: 'vanguard',
                     x: 4,
+                    y: 4
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'marine',
+                    x: 3,
                     y: 4
                 });
             });

@@ -8,7 +8,7 @@ module.exports = {
         commands: {
             dualshot: {
                 damage: 300,
-                range: 2,
+                range: 1,
                 cooldown: 0,
                 splash: 1
             }
@@ -25,7 +25,7 @@ module.exports = {
                 damage: 500,
                 range: 3,
                 cooldown: 0,
-                splash: 0
+                splash: 3
             }
         }
     }

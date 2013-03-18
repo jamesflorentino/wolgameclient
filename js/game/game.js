@@ -106,18 +106,26 @@ Game.prototype.loadMap = function(tiles) {
 /**
  * Issue a command to an entity to a targetted tile with a particular command
  */
-Game.prototype.actEntity = function(entity, tile, command) {
+Game.prototype.actEntity = function(entity, tile, command, target) {
     /** do damage calculation **/
     var _this = this;
     var attackRange = command.range;
+    var splashRange = command.splash;
     var targets = [];
     var results = [];
-    var tiles = this.tiles.neighbors(tile, attackRange);
+    var tiles;
+
+    tiles = this.tiles.neighbors(tile, splashRange);
     tiles = [tile].concat(tiles);
-    /** Only include tiles with units  **/
     tiles = _.filter(tiles, function(tile) {
         return tile.entities.length > 0 && !tile.has(entity);
     });
+
+    /** Only include tiles with units  **/
+    //tiles = [tile].concat(tiles);
+    //tiles = _.filter(tiles, function(tile) {
+    //    return tile.entities.length > 0 && !tile.has(entity);
+    //});
 
     _.each(tiles, function(tile) {
         var target = tile.entities[0];
