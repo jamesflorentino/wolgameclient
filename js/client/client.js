@@ -47,8 +47,18 @@ Client.prototype.initialize = function(game) {
 
     this.game.on('unit:act', function(data) {
         _this.getUnit(data.id, function(unit) {
+            var parent = unit;
             var targets = [];
             var tileSprites = [];
+            /** Tell the active unit to which direction to face **/
+            _this.getUnit(data.targets[0].id, function(unit) {
+                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
+            });
+            _.each(data.targets, function(target) {
+                _this.getUnit(target.id, function(unit) {
+                    unit.face(unit.container.x < parent.container.x ? 'right' : 'left');
+                });
+            });
             // Make sure they're all clean
             unit.removeAllListeners('act:end');
             unit.removeAllListeners('act');
@@ -74,7 +84,6 @@ Client.prototype.initialize = function(game) {
             });
 
             unit.on('act', function() {
-                var parent = unit;
                 _.each(targets, function(target, i) {
                     var unit = target.unit;
                     var coord = HexUtil.coord(target.entity.tile, true);
@@ -92,6 +101,7 @@ Client.prototype.initialize = function(game) {
                     unit.damage();
                 });
             });
+
             _.each(data.targets, function(obj) {
                 var id = obj.id;
                 var damage = obj.damage;
@@ -424,14 +434,19 @@ Client.prototype.unitEvents = function(unit, entity) {
                     }
                     unit.tileSpritesTarget.push(tileSprite);
                     tileSprite.addEventListener('click', function() {
-                        var tiles = [tile];
-                        var tileSprites = [];
+                        var tiles, tileSprites;
+                        tiles = [tile];
+                        tileSprites = [];
+
                         unit.emit('tiles:hide:path');
                         unit.emit('tiles:hide:target');
+                        unit.tileSpritesTargetMark = [];
+
                         _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
                             targetUnit.container.addChildAt(tileSprite, 1);
                             tileSprites.push(tileSprite);
                             tileSprite.addEventListener('click', function() { 
+                                /** delay to give some breathing space to the UI **/
                                 wait(100, function() {
                                     _this.emit('input:act', {
                                         tile: tile,
@@ -457,9 +472,19 @@ Client.prototype.unitEvents = function(unit, entity) {
                                 alpha: 1
                             }, 200, Ease.backOut);
 
+                            var splashTiles = game.tiles.neighbors(tile, command.splash);
+                            splashTiles = _.filter(splashTiles, function(tile) {
+                                var entities = tile.entities;
+                                return entities.length;
+                            });
+                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
+                                unit.tileSpritesTargetMark.push(tileSprite);
+                            });
                         });
+
                         var linePath = _this.createLinePath(entity.tile, tile);
-                        unit.tileSpritesTargetMark = [linePath].concat(tileSprites);
+                        unit.tileSpritesTargetMark.push(linePath);
+                        unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
                     });
                     tileSprite.set({
                         x: 0,

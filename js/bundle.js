@@ -278,6 +278,76 @@ EventEmitter.prototype.listeners = function(type) {
 module.exports = base;
 
 },{}],6:[function(require,module,exports){var logs = require('../logs');
+var EventEmitter = require('events').EventEmitter;
+var unitTypes = require('../game/unit-types');
+
+function gameRoutes(socket, game) {
+    var log = logs('#logs');
+    var routes = new EventEmitter();
+
+    routes.on('unit:move', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y,
+            sync: data.sync
+        };
+        game.getEntity(options.id, function(entity) {
+            game.tiles.get(options.x, options.y, function(tile) {
+                game.moveEntity(entity, tile, data.sync);
+                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+            });
+        });
+    });
+
+    routes.on('unit:act', function(data) {
+        game.getEntity(data.id, function(entity) {
+            game.tiles.get(data.x, data.y, function(tile) {
+                entity.commands.get(data.type, function(command) {
+                    var target = game.getEntity(data.target);
+                    game.actEntity(entity, tile, command, target);
+                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
+                });
+            });
+        });
+    });
+
+    routes.on('unit:create', function(data) {
+        var options = {
+            id: data.id,
+        ,8:[function(require,module,exports){var logs = require('../logs');
+var EventEmitter = require('events').EventEmitter;
+var unitTypes = require('../game/unit-types');
+
+function gameRoutes(socket, game) {
+    var log = logs('#logs');
+    var routes = new EventEmitter();
+
+    routes.on('unit:move', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y,
+            sync: data.sync
+        };
+        game.getEntity(options.id, function(entity) {
+            game.tiles.get(options.x, options.y, function(tile) {
+                game.moveEntity(entity, tile, data.sync);
+                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+            });
+        });
+    });
+
+    routes.on('unit:act', function(data) {
+        game.getEntity(data.id, function(entity) {
+            game.tiles.get(data.x, data.y, function(tile) {
+                entity.commands.get(data.type, function(command) {
+                    var target = game.getEntity(data.target);
+                    game.actEntity(entity, tile, command, target);
+                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
+                });
+            });
+        ,9:[function(require,module,exports){var logs = require('../logs');
 
 function clientEvents(game, client, socket) {
     var log = logs('#unit-info', true);
@@ -327,87 +397,7 @@ function clientEvents(game, client, socket) {
 
 module.exports = clientEvents;
 
-},{"../logs":7}],8:[function(require,module,exports){var logs = require('../logs');
-var EventEmitter = require('events').EventEmitter;
-var unitTypes = require('../game/unit-types');
-
-function gameRoutes(socket, game) {
-    var log = logs('#logs');
-    var routes = new EventEmitter();
-
-    routes.on('unit:move', function(data) {
-        var options = {
-            id: data.id,
-            x: data.x,
-            y: data.y,
-            sync: data.sync
-        };
-        game.getEntity(options.id, function(entity) {
-            game.tiles.get(options.x, options.y, function(tile) {
-                game.moveEntity(entity, tile, data.sync);
-                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-            });
-        });
-    });
-
-    routes.on('unit:act', function(data) {
-        game.getEntity(data.id, function(entity) {
-            game.tiles.get(data.x, data.y, function(tile) {
-                entity.commands.get(data.type, function(command) {
-                    var target = game.getEntity(data.target);
-                    game.actEntity(entity, tile, command, target);
-                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
-                });
-            });
-        });
-    });
-
-    routes.on('unit:create', function(data) {
-        var options = {
-            id: data.id,
-            type: data.target,
-            x: data.x,
-            y: data.y,
-            attributes: unitTypes[data.target]
-        };
-        game.spawnEntity(options, function(entity) {
-            log('new entity', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-        });
-    });
-
-    routes.on('unit:enable', function(data) {
-        var options = {
-            id: data.id,
-            x: data.x,
-            y: data.y
-        };
-        game.getEntity(options.id, function(entity) {
-            game.setTurn(entity);
-            log('enable: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-        });
-    });
-
-    routes.on('unit:disable', function(data) {
-        var options = {
-            id: data.id,
-            x: data.x,
-            y: data.y
-        };
-        game.getEntity(options.id, function(entity) {
-            game.endTurn(entity);
-            log('disable: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-        });
-    });
-
-    socket.on('unit/turn', function(data) {
-        //console.log('turn', data);
-        routes.emit('unit:' + data.c, data);
-    });
-}
-
-module.exports = gameRoutes;
-
-},{"events":2,"../logs":7,"../game/unit-types":9}],10:[function(require,module,exports){var Tile = function() {
+},{"../logs":7}],10:[function(require,module,exports){var Tile = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -568,7 +558,7 @@ module.exports = HexUtil;
     setTimeout(fn, time);
 };
 
-},{}],9:[function(require,module,exports){module.exports = {
+},{}],8:[function(require,module,exports){module.exports = {
     vanguard: {
         stats: {
             range: 2,
@@ -1771,6 +1761,128 @@ Tiles.prototype.findPath = function(start, end) {
                 || neighbor.wall || neighbor.isOccupied() || currentNode.blocked(neighbor) || neighbor.blocked(currentNode)
                ) {
                    continue;
+      ,19:[function(require,module,exports){var Tile = require('./tile');
+
+var Tiles = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * @method initialize
+ * @protected
+ * @param columns
+ * @param rows
+ */
+Tiles.prototype.initialize = function(columns, rows) {
+    this.columns = columns;
+    this.rows = rows;
+    this.matrix = [];
+    this.total = 0;
+    for(var countY = 0; countY < this.rows; countY++) {
+        this.matrix.push([]);
+        for(var countX = 0; countX < this.columns; countX++) {
+            var tile = new Tile(countX, countY, this.total);
+            this.matrix[countY].push(tile);
+            this.total++;
+        }
+    }
+};
+
+/**
+ * @method get
+ * @param {number} x
+ * @param {number} y
+ * @param {Function} fn
+ * @return {Tile}
+ */
+Tiles.prototype.get = function(x, y, fn) {
+    var tile;
+    if (this.matrix[y]) {
+        tile = this.matrix[y][x];
+        if (tile) {
+            if (typeof fn === 'function') {
+                fn(tile);
+            }
+        }
+    }
+    return tile;
+};
+
+/**
+ * @method each
+ * @param {function} fn
+ */
+Tiles.prototype.each = function(fn) {
+    if (typeof fn === 'function') {
+        for(var countY = 0; countY < this.rows; countY++) {
+            for(var countX = 0; countX < this.columns; countX++) {
+                var tile = this.matrix[countY][countX];
+                fn.call(this, tile);
+            }
+        }
+    }
+};
+
+/**
+ * @param {Tile} tile
+ * @return {Array}
+ */
+Tiles.prototype.neighbors = function(tile) {
+    /** TODO: main usage is in hex-tiles.js **/
+    return [tile];
+};
+
+/**
+ * @method findPath
+ * @param {Tile} start starting tile
+ * @param {Tile} end target tile
+ * @return {Array}
+ */
+Tiles.prototype.findPath = function(start, end) {
+    var openList,
+    closedList,
+    currentNode,
+    neighbors,
+    neighbor,
+    scoreG,
+    scoreGBest,
+    i,
+    _len;
+    openList = [start];
+    closedList = [];
+
+    while(openList.length) {
+        var lowestIndex = 0;
+        for(i=0,_len = openList.length; i < _len; i++) {
+            if (openList[i].f < openList[lowestIndex].f) {
+                lowestIndex = i;
+            }
+        }
+        currentNode = openList[lowestIndex];
+        // case END: The result has been found.
+        if (currentNode.x === end.x && currentNode.y === end.y) {
+            var current = currentNode;
+            var parent;
+            var tiles = [];
+            while (current.parent) {
+                tiles.push(current);
+                parent = current.parent; // capture the parent element.
+                current.parent = null; // clear the tile's parent
+                current = parent; // move to the next parent
+            }
+            return tiles.reverse();
+        }
+        // case DEFAULT: Move current node to the closed list.
+        openList.splice(currentNode, 1);
+        closedList.push(currentNode);
+        // Find the best score in the neighboring tile of the hex.
+        neighbors = this.neighbors(currentNode);
+        for(i=0, _len = neighbors.length; i < _len; i++) {
+            neighbor = neighbors[i];
+            if (closedList.indexOf(neighbor) > -1 
+                || neighbor.wall || neighbor.isOccupied() || currentNode.blocked(neighbor) || neighbor.blocked(currentNode)
+               ) {
+                   continue;
                }
                scoreG = currentNode.g + 1;
                scoreGBest = false;
@@ -1826,164 +1938,7 @@ Tiles.create = function(cols, rows) {
 
 module.exports = Tiles;
 
-},{"./tile":10}],18:[function(require,module,exports){var Stat = require('./stat');
-
-var Stats = function() {
-    this.initialize.apply(this, arguments);
-};
-
-/**
- * @type {Array}
- * @private
- */
-Stats.prototype.list = null;
-
-/**
- * @type {object}
- * @private
- */
-Stats.prototype._dictionary = null;
-
-/**
- * @method initialize
- * @protected
- * @param {object} stats
- */
-Stats.prototype.initialize = function(stats) {
-    this.list = [];
-    this._dictionary = {};
-    this.set(stats);
-    this.add('null', 0);
-};
-
-/**
- * Add an attribute
- * @method add
- * @param {Stat|Object} data
- * @param {String} data2
- */
-Stats.prototype.add = function(name, val, max) {
-    var stat = new Stat(name, val, max);
-    this.list.push(stat);
-    this._dictionary[stat.name] = stat;
-};
-
-/**
- * Override existing stat data.
- * @method set
- * @param {object} stats
- */
-Stats.prototype.set = function (stats) {
-    var stat;
-    var value;
-    for (var key in stats) {
-        if (stats.hasOwnProperty(key)) {
-            value = stats[key];
-            if (value.max) {
-                value = value.max;
-            }
-            if ((stat = this.get(key))) {
-                stat.setBase(value);
-            } else {
-                this.add(new Stat(key, value));
-            }
-        }
-    }
-};
-
-/**
- * Returns a re-parsed json equivalent.
- * @method toJSON
- * @return {Object}
- */
-Stats.prototype.json = function() {
-    var attr = {};
-    for(var i=0; i<this.list.length;i++) {
-        var stat = this.list[i];
-        if (stat.name === 'null') {
-            continue;
-        }
-        attr[stat.name] = {
-            value: stat.value,
-            max: stat.max
-        };
-    }
-    return attr;
-};
-
-/**
- * returns a Stat Object
- * @method get
- * @param name
- * @return {Stat}
- */
-Stats.prototype.get = function(name) {
-    var stat = this._dictionary[name];
-    if (!stat) {
-        stat = this.get('null');
-    }
-    return stat;
-};
-
-Stats.prototype.each = function(fn) {
-    var stat;
-    for (var i=0; i < this.list.length; i++) {
-        stat = this.list[i];
-        if (stat.name === 'null') {
-            continue;
-        }
-        if (fn(stat, i) === false) {
-            break;
-        }
-    };
-};
-
-module.exports = Stats;
-
-},{"./stat":28}],19:[function(require,module,exports){var Command = require('./command');
-var Collection = require('../collection');
-
-var Commands = function() {
-    this.initialize.apply(this, arguments);
-};
-
-Commands.prototype = new Collection();
-Commands.prototype.__super = Collection.prototype;
-
-Commands.prototype.initialize = function(data) {
-    this.set.apply(this, arguments);
-    this.__super.initialize.apply(this);
-};
-
-Commands.prototype.get = function(id, fn) {
-    var command = this.__super.get.apply(this, arguments);
-    if (typeof fn === 'function') {
-        if (command) {
-            fn(command);
-        }
-    }
-    return command;
-};
-
-Commands.prototype.set = function(data) {
-    if (typeof data === 'object') {
-        for (var key in data) {
-            if (data.hasOwnProperty(key)) {
-                this.add(key, data[key]);
-            }
-        }
-    }
-
-};
-
-Commands.prototype.add = function(name, options) {
-    var command = new Command(name, options);
-    this.__super.add.call(this, command);
-};
-
-module.exports = Commands;
-
-},{"./command":29,"../collection":30}],28:[function(require,module,exports){var Stat = function() {
+},{"./tile":10}],28:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -3505,196 +3460,7 @@ window.addEventListener('load', function() {
 }).call(this);
 
 })()
-},{}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
-var EventEmitter = require('events').EventEmitter;
-var GameEntity = require('./entity');
-var Tile = require('./tiles/tile');
-var _ = require('underscore');
-
-var Game = function() {
-    this.initialize.apply(this, arguments);
-};
-
-Game.rows = 8;
-Game.columns = 10;
-
-Game.prototype = new EventEmitter();
-
-Game.prototype.initialize = function() {
-    this.entities = [];
-    this._entitiesDict = {};
-    this.tiles = new HexTiles(Game.columns, Game.rows);
-};
-
-Game.prototype.addEntity = function(entity) {
-    if (entity instanceof GameEntity) {
-        if (entity.id) {
-            this._entitiesDict[entity.id] = entity;
-            this.entities.push(entity);
-            this.emit('unit:add', entity);
-        } else {
-            throw(new Error('GameEntity requires an ID'));
-        }
-    } else {
-        throw(new Error('Not a valid GameEntity'));
-    }
-};
-
-Game.prototype.removeEntity = function(entity) {
-    var tile = entity.tile;
-    tile.vacate(entity);
-    delete this._entitiesDict[entity.id];
-    this.entities.splice(this.entities.indexOf(entity), 1);
-    this.emit('unit:remove', entity);
-    entity.die();
-};
-
-Game.prototype.createEntity = function(options, callback) {
-    var entity = GameEntity.create(options.id);
-    if (entity) {
-        if (options) {
-            entity.type = options.type;
-            entity.set(options.attributes);
-        }
-        if (typeof callback === 'function') {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.spawnEntity = function(options, fn) {
-    var _this = this;
-    this.createEntity(options, function(entity) {
-        _this.tiles.get(options.x, options.y, function(tile) {
-            entity.move(tile);
-            _this.addEntity(entity);
-            if (typeof fn === 'function') {
-                fn(entity);
-            }
-        });
-    });
-};
-
-Game.prototype.moveEntity = function(entity, tile, sync) {
-    entity.move(tile, sync);
-    this.emit('unit:move', entity, sync);
-};
-
-Game.prototype.getEntity = function(id, callback) {
-    var entity = this._entitiesDict[id];
-
-    if (typeof callback === 'function') {
-        if (entity) {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.eachEntity = function(callback) {
-    _.each(this.entities, callback);
-};
-
-Game.prototype.loadMap = function(tiles) {
-    var _this = this;
-    _.each(tiles, function(t) {
-        _this.tiles.get(t.x, t.y, function(tile) {
-            for(var key in t) {
-                if (t.hasOwnProperty(key)) {
-                    tile[key] = t[key];
-                }
-            }
-        });
-    });
-};
-
-
-/**
- * Issue a command to an entity to a targetted tile with a particular command
- */
-Game.prototype.actEntity = function(entity, tile, command, target) {
-    /** do damage calculation **/
-    var _this = this;
-    var attackRange = command.range;
-    var splashRange = command.splash;
-    var targets = [];
-    var results = [];
-    var tiles;
-
-    tiles = this.tiles.neighbors(tile, splashRange);
-    tiles = [tile].concat(tiles);
-    tiles = _.filter(tiles, function(tile) {
-        return tile.entities.length > 0 && !tile.has(entity);
-    });
-
-    /** Only include tiles with units  **/
-    //tiles = [tile].concat(tiles);
-    //tiles = _.filter(tiles, function(tile) {
-    //    return tile.entities.length > 0 && !tile.has(entity);
-    //});
-
-    _.each(tiles, function(tile) {
-        var target = tile.entities[0];
-        var result = entity.act(target, command);
-        target.damage(result.damage);
-        targets.push({
-            id: target.id,
-            damage: result.damage
-        });
-
-        if (result.status) {
-            results.push({
-                id: target.id,
-                status: result.status
-            });
-        }
-    });
-
-    this.emit('unit:act', {
-        id: entity.id,
-        x: tile.x,
-        y: tile.y,
-        type: command.id,
-        targets: targets,
-        results: results
-    });
-};
-
-/** Turn based component **/
-Game.prototype.setTurn = function(entity) {
-    if (this.entities.indexOf(entity) > -1) {
-        this.currentTurn = entity;
-        entity.enable();
-        this.emit('unit:enable', entity);
-    }
-};
-
-Game.prototype.endTurn = function() {
-    var entity = this.currentTurn;
-    if (entity) {
-        entity.disable();
-        this.emit('unit:disable', entity);
-    }
-    this.currentTurn = null;
-};
-
-Game.prototype.nextTurn = function() {
-    this.endTurn();
-};
-
-Game.create = function(callback) {
-    var game = new Game();
-    if (typeof callback === 'function') {
-        callback(null, game);
-    }
-    return game;
-};
-
-
-module.exports = Game;
-
-},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],33:[function(require,module,exports){(function(){/*global createjs */
+},{}],33:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -3743,8 +3509,18 @@ Client.prototype.initialize = function(game) {
 
     this.game.on('unit:act', function(data) {
         _this.getUnit(data.id, function(unit) {
+            var parent = unit;
             var targets = [];
             var tileSprites = [];
+            /** Tell the active unit to which direction to face **/
+            _this.getUnit(data.targets[0].id, function(unit) {
+                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
+            });
+            _.each(data.targets, function(target) {
+                _this.getUnit(target.id, function(unit) {
+                    unit.face(unit.container.x < parent.container.x ? 'right' : 'left');
+                });
+            });
             // Make sure they're all clean
             unit.removeAllListeners('act:end');
             unit.removeAllListeners('act');
@@ -3770,7 +3546,6 @@ Client.prototype.initialize = function(game) {
             });
 
             unit.on('act', function() {
-                var parent = unit;
                 _.each(targets, function(target, i) {
                     var unit = target.unit;
                     var coord = HexUtil.coord(target.entity.tile, true);
@@ -3788,6 +3563,143 @@ Client.prototype.initialize = function(game) {
                     unit.damage();
                 });
             });
+
+            _.each(data.targets, function(obj) {
+                var id = obj.id;
+                var damage = obj.damage;
+                _this.game.getEntity(id, function(entity) {
+                    _this.getUnit(id, function(unit) {
+                        _this.createTile('hex_target', entity.tile, function(tileSprite) {
+                            targets.push({
+                                unit: unit,
+                                entity: entity,
+                                damage: damage
+                            });
+                            tileSprites.push(tileSprite);
+                            unit.damageStart();
+                        });
+                    });
+                });
+            });
+
+
+            unit.actStart();
+        });
+    });
+};
+
+Client.prototype.setScene = function(canvas, callback) {
+    var _this = this;
+    this.layers = {};
+    this.stage = new createjs.Stage(canvas);
+    createjs.Touch.enable(this.stage);
+    _this.resource('background', function(err, backgroundImage){ 
+        _this.setSpriteSheets(function() {
+            _this.setBackground(backgroundImage, function() {
+                _this.initializeLayers(function(),33:[function(require,module,exports){(function(){/*global createjs */
+var Preloader = require('./Preloader');
+var HexUtil = require('./hexutil');
+var frames = require('./frames/frames'); // spriteSheet frameData
+var Game = require('../game/game');
+var settings = require('./settings');
+var EventEmitter = require('events').EventEmitter;
+var spriteClasses = {
+    marine: require('./unit-classes/marine'),
+    vanguard: require('./unit-classes/vanguard')
+};
+var frameDataOffset = require('./frame-data-offset');
+var _ = require('underscore');
+var Ease = createjs.Ease;
+var Tween = createjs.Tween;
+var wait = require('../game/wait');
+
+var Client = function(game) {
+    this.initialize.apply(this, arguments);
+};
+
+Client.prototype = new EventEmitter();
+
+Client.prototype.initialize = function(game) {
+    var _this = this;
+    var turnRoutes = new EventEmitter();
+
+    this.game = game;
+    this.units = {};
+    this.preloader = new Preloader();
+
+    turnRoutes.on('result:death', function(unit) {
+        unit.die();
+    });
+
+    turnRoutes.on('result:damage', function(unit) {
+        unit.damageEnd();
+    });
+
+    this.game.on('unit:add', function(entity) {
+        _this.createUnit(entity, function(unit) {
+            //unit.container.addEventListener('click', function() {
+            //    _this.emit('unit:info', entity);
+            //});
+        });
+    });
+
+    this.game.on('unit:act', function(data) {
+        _this.getUnit(data.id, function(unit) {
+            var parent = unit;
+            var targets = [];
+            var tileSprites = [];
+            /** Tell the active unit to which direction to face **/
+            _this.getUnit(data.targets[0].id, function(unit) {
+                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
+            });
+            _.each(data.targets, function(target) {
+                _this.getUnit(target.id, function(unit) {
+                    unit.face(unit.container.x < parent.container.x ? 'right' : 'left');
+                });
+            });
+            // Make sure they're all clean
+            unit.removeAllListeners('act:end');
+            unit.removeAllListeners('act');
+
+            unit.on('act:end', function() {
+                unit.removeAllListeners('act:end');
+                unit.removeAllListeners('act');
+                _.each(targets, function(target) {
+                    var entity = target.entity;
+                    var unit = target.unit;
+                    var damage = target.damage;
+                    _this.showDamage(unit, damage);
+                });
+
+                _.each(data.results, function(result) {
+                    _this.getUnit(result.id, function(unit) {
+                        turnRoutes.emit('result:' + result.status, unit);
+                    });
+                });
+                _.each(tileSprites, function(tileSprite) {
+                    tileSprite.parent.removeChild(tileSprite);
+                });
+            });
+
+            unit.on('act', function() {
+                _.each(targets, function(target, i) {
+                    var unit = target.unit;
+                    var coord = HexUtil.coord(target.entity.tile, true);
+                    var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
+                    var direction = unit.direction;
+                    Tween.get(unit.container).to({
+                        scaleX: 1.15 * direction,
+                        scaleY: 1.15,
+                        x: posX
+                    }).to({
+                        scaleX: 1 * direction,
+                        scaleY: 1,
+                        x: coord.x
+                    }, 300, Ease.backOut);
+                    unit.damage();
+                });
+            });
+
             _.each(data.targets, function(obj) {
                 var id = obj.id;
                 var damage = obj.damage;
@@ -4120,14 +4032,19 @@ Client.prototype.unitEvents = function(unit, entity) {
                     }
                     unit.tileSpritesTarget.push(tileSprite);
                     tileSprite.addEventListener('click', function() {
-                        var tiles = [tile];
-                        var tileSprites = [];
+                        var tiles, tileSprites;
+                        tiles = [tile];
+                        tileSprites = [];
+
                         unit.emit('tiles:hide:path');
                         unit.emit('tiles:hide:target');
+                        unit.tileSpritesTargetMark = [];
+
                         _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
                             targetUnit.container.addChildAt(tileSprite, 1);
                             tileSprites.push(tileSprite);
                             tileSprite.addEventListener('click', function() { 
+                                /** delay to give some breathing space to the UI **/
                                 wait(100, function() {
                                     _this.emit('input:act', {
                                         tile: tile,
@@ -4153,9 +4070,19 @@ Client.prototype.unitEvents = function(unit, entity) {
                                 alpha: 1
                             }, 200, Ease.backOut);
 
+                            var splashTiles = game.tiles.neighbors(tile, command.splash);
+                            splashTiles = _.filter(splashTiles, function(tile) {
+                                var entities = tile.entities;
+                                return entities.length;
+                            });
+                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
+                                unit.tileSpritesTargetMark.push(tileSprite);
+                            });
                         });
+
                         var linePath = _this.createLinePath(entity.tile, tile);
-                        unit.tileSpritesTargetMark = [linePath].concat(tileSprites);
+                        unit.tileSpritesTargetMark.push(linePath);
+                        unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
                     });
                     tileSprite.set({
                         x: 0,

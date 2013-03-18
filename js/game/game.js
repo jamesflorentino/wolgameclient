@@ -128,20 +128,24 @@ Game.prototype.actEntity = function(entity, tile, command, target) {
     //});
 
     _.each(tiles, function(tile) {
-        var target = tile.entities[0];
-        var result = entity.act(target, command);
-        target.damage(result.damage);
-        targets.push({
-            id: target.id,
-            damage: result.damage
-        });
-
-        if (result.status) {
-            results.push({
+        var target, result;
+        target = tile.entities[0];
+        if (target.stats.get('health').val() > 0) {
+            result = entity.act(target, command);
+            target.damage(result.damage);
+            targets.push({
                 id: target.id,
-                status: result.status
+                damage: result.damage
             });
+
+            if (result.status) {
+                results.push({
+                    id: target.id,
+                    status: result.status
+                });
+            }
         }
+
     });
 
     this.emit('unit:act', {
