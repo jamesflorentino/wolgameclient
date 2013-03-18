@@ -17,13 +17,23 @@ function serverEmulator(socket) {
     });
 
     routes.on('unit:create', function unitCreate(data) {
-        game.spawnEntity({
-            id: _.uniqueId('unit'),
-            type: data.id,
-            attributes: unitTypes[data.id],
-            x: data.x,
-            y: data.y
-        });
+        var unitType = unitTypes[data.id];
+        if (unitType) {
+            game.spawnEntity({
+                id: _.uniqueId('unit'),
+                type: data.id,
+                attributes: unitTypes[data.id],
+                x: data.x,
+                y: data.y
+            });
+        } else {
+            socket.emit('warning', {
+                error: 'Unknown entity: ' + data.id,
+                message: 'You tried to create an unknown entity. ' +
+                    'If you are trying to see loopholes, ' +
+                    'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
+            })
+        }
     });
 
     routes.on('unit:act', function unitAct(data) {
@@ -145,14 +155,14 @@ function serverEmulator(socket) {
                 routes.emit('unit:create', {
                     c: 'create',
                     id: 'vanguard',
-                    x: 2,
+                    x: 6,
                     y: 5
                 });
                 routes.emit('unit:create', {
                     c: 'create',
                     id: 'vanguard',
-                    x: 4,
-                    y: 4
+                    x: 3,
+                    y: 5
                 });
                 routes.emit('unit:create', {
                     c: 'create',
@@ -160,6 +170,12 @@ function serverEmulator(socket) {
                     x: 3,
                     y: 4
                 });
+                //routes.emit('unit:create', {
+                //    c: 'create',
+                //    id: 'marine',
+                //    x: 3,
+                //    y: 3
+                //});
             });
         };
 

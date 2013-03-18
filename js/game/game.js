@@ -103,35 +103,27 @@ Game.prototype.loadMap = function(tiles) {
 };
 
 
-/**
- * Issue a command to an entity to a targetted tile with a particular command
- */
 Game.prototype.actEntity = function(entity, tile, command, target) {
-    /** do damage calculation **/
     var _this = this;
     var attackRange = command.range;
     var splashRange = command.splash;
     var targets = [];
     var results = [];
     var tiles;
+    var p = tile;
 
+    // get the affected units
     tiles = this.tiles.neighbors(tile, splashRange);
     tiles = [tile].concat(tiles);
     tiles = _.filter(tiles, function(tile) {
         return tile.entities.length > 0 && !tile.has(entity);
     });
 
-    /** Only include tiles with units  **/
-    //tiles = [tile].concat(tiles);
-    //tiles = _.filter(tiles, function(tile) {
-    //    return tile.entities.length > 0 && !tile.has(entity);
-    //});
-
-    _.each(tiles, function(tile) {
+    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
         var target, result;
         target = tile.entities[0];
         if (target.stats.get('health').val() > 0) {
-            result = entity.act(target, command);
+            result = entity.act(target, command, i);
             target.damage(result.damage);
             targets.push({
                 id: target.id,

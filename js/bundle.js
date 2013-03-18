@@ -278,76 +278,6 @@ EventEmitter.prototype.listeners = function(type) {
 module.exports = base;
 
 },{}],6:[function(require,module,exports){var logs = require('../logs');
-var EventEmitter = require('events').EventEmitter;
-var unitTypes = require('../game/unit-types');
-
-function gameRoutes(socket, game) {
-    var log = logs('#logs');
-    var routes = new EventEmitter();
-
-    routes.on('unit:move', function(data) {
-        var options = {
-            id: data.id,
-            x: data.x,
-            y: data.y,
-            sync: data.sync
-        };
-        game.getEntity(options.id, function(entity) {
-            game.tiles.get(options.x, options.y, function(tile) {
-                game.moveEntity(entity, tile, data.sync);
-                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-            });
-        });
-    });
-
-    routes.on('unit:act', function(data) {
-        game.getEntity(data.id, function(entity) {
-            game.tiles.get(data.x, data.y, function(tile) {
-                entity.commands.get(data.type, function(command) {
-                    var target = game.getEntity(data.target);
-                    game.actEntity(entity, tile, command, target);
-                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
-                });
-            });
-        });
-    });
-
-    routes.on('unit:create', function(data) {
-        var options = {
-            id: data.id,
-        ,8:[function(require,module,exports){var logs = require('../logs');
-var EventEmitter = require('events').EventEmitter;
-var unitTypes = require('../game/unit-types');
-
-function gameRoutes(socket, game) {
-    var log = logs('#logs');
-    var routes = new EventEmitter();
-
-    routes.on('unit:move', function(data) {
-        var options = {
-            id: data.id,
-            x: data.x,
-            y: data.y,
-            sync: data.sync
-        };
-        game.getEntity(options.id, function(entity) {
-            game.tiles.get(options.x, options.y, function(tile) {
-                game.moveEntity(entity, tile, data.sync);
-                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
-            });
-        });
-    });
-
-    routes.on('unit:act', function(data) {
-        game.getEntity(data.id, function(entity) {
-            game.tiles.get(data.x, data.y, function(tile) {
-                entity.commands.get(data.type, function(command) {
-                    var target = game.getEntity(data.target);
-                    game.actEntity(entity, tile, command, target);
-                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
-                });
-            });
-        ,9:[function(require,module,exports){var logs = require('../logs');
 
 function clientEvents(game, client, socket) {
     var log = logs('#unit-info', true);
@@ -397,7 +327,87 @@ function clientEvents(game, client, socket) {
 
 module.exports = clientEvents;
 
-},{"../logs":7}],10:[function(require,module,exports){var Tile = function() {
+},{"../logs":7}],8:[function(require,module,exports){var logs = require('../logs');
+var EventEmitter = require('events').EventEmitter;
+var unitTypes = require('../game/unit-types');
+
+function gameRoutes(socket, game) {
+    var log = logs('#logs');
+    var routes = new EventEmitter();
+
+    routes.on('unit:move', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y,
+            sync: data.sync
+        };
+        game.getEntity(options.id, function(entity) {
+            game.tiles.get(options.x, options.y, function(tile) {
+                game.moveEntity(entity, tile, data.sync);
+                log('move: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+            });
+        });
+    });
+
+    routes.on('unit:act', function(data) {
+        game.getEntity(data.id, function(entity) {
+            game.tiles.get(data.x, data.y, function(tile) {
+                entity.commands.get(data.type, function(command) {
+                    var target = game.getEntity(data.target);
+                    game.actEntity(entity, tile, command, target);
+                    log('act: ', entity.type , '(' + entity.id + ')', 'x:', tile.x, 'y:', tile.y);
+                });
+            });
+        });
+    });
+
+    routes.on('unit:create', function(data) {
+        var options = {
+            id: data.id,
+            type: data.target,
+            x: data.x,
+            y: data.y,
+            attributes: unitTypes[data.target]
+        };
+        game.spawnEntity(options, function(entity) {
+            log('new entity', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+        });
+    });
+
+    routes.on('unit:enable', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y
+        };
+        game.getEntity(options.id, function(entity) {
+            game.setTurn(entity);
+            log('enable: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+        });
+    });
+
+    routes.on('unit:disable', function(data) {
+        var options = {
+            id: data.id,
+            x: data.x,
+            y: data.y
+        };
+        game.getEntity(options.id, function(entity) {
+            game.endTurn(entity);
+            log('disable: ', entity.type , '(' + entity.id + ')', 'x:', entity.tile.x, 'y:', entity.tile.y);
+        });
+    });
+
+    socket.on('unit/turn', function(data) {
+        //console.log('turn', data);
+        routes.emit('unit:' + data.c, data);
+    });
+}
+
+module.exports = gameRoutes;
+
+},{"events":2,"../logs":7,"../game/unit-types":9}],10:[function(require,module,exports){var Tile = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -558,7 +568,7 @@ module.exports = HexUtil;
     setTimeout(fn, time);
 };
 
-},{}],8:[function(require,module,exports){module.exports = {
+},{}],9:[function(require,module,exports){module.exports = {
     vanguard: {
         stats: {
             range: 2,
@@ -1761,128 +1771,6 @@ Tiles.prototype.findPath = function(start, end) {
                 || neighbor.wall || neighbor.isOccupied() || currentNode.blocked(neighbor) || neighbor.blocked(currentNode)
                ) {
                    continue;
-      ,19:[function(require,module,exports){var Tile = require('./tile');
-
-var Tiles = function() {
-    this.initialize.apply(this, arguments);
-};
-
-/**
- * @method initialize
- * @protected
- * @param columns
- * @param rows
- */
-Tiles.prototype.initialize = function(columns, rows) {
-    this.columns = columns;
-    this.rows = rows;
-    this.matrix = [];
-    this.total = 0;
-    for(var countY = 0; countY < this.rows; countY++) {
-        this.matrix.push([]);
-        for(var countX = 0; countX < this.columns; countX++) {
-            var tile = new Tile(countX, countY, this.total);
-            this.matrix[countY].push(tile);
-            this.total++;
-        }
-    }
-};
-
-/**
- * @method get
- * @param {number} x
- * @param {number} y
- * @param {Function} fn
- * @return {Tile}
- */
-Tiles.prototype.get = function(x, y, fn) {
-    var tile;
-    if (this.matrix[y]) {
-        tile = this.matrix[y][x];
-        if (tile) {
-            if (typeof fn === 'function') {
-                fn(tile);
-            }
-        }
-    }
-    return tile;
-};
-
-/**
- * @method each
- * @param {function} fn
- */
-Tiles.prototype.each = function(fn) {
-    if (typeof fn === 'function') {
-        for(var countY = 0; countY < this.rows; countY++) {
-            for(var countX = 0; countX < this.columns; countX++) {
-                var tile = this.matrix[countY][countX];
-                fn.call(this, tile);
-            }
-        }
-    }
-};
-
-/**
- * @param {Tile} tile
- * @return {Array}
- */
-Tiles.prototype.neighbors = function(tile) {
-    /** TODO: main usage is in hex-tiles.js **/
-    return [tile];
-};
-
-/**
- * @method findPath
- * @param {Tile} start starting tile
- * @param {Tile} end target tile
- * @return {Array}
- */
-Tiles.prototype.findPath = function(start, end) {
-    var openList,
-    closedList,
-    currentNode,
-    neighbors,
-    neighbor,
-    scoreG,
-    scoreGBest,
-    i,
-    _len;
-    openList = [start];
-    closedList = [];
-
-    while(openList.length) {
-        var lowestIndex = 0;
-        for(i=0,_len = openList.length; i < _len; i++) {
-            if (openList[i].f < openList[lowestIndex].f) {
-                lowestIndex = i;
-            }
-        }
-        currentNode = openList[lowestIndex];
-        // case END: The result has been found.
-        if (currentNode.x === end.x && currentNode.y === end.y) {
-            var current = currentNode;
-            var parent;
-            var tiles = [];
-            while (current.parent) {
-                tiles.push(current);
-                parent = current.parent; // capture the parent element.
-                current.parent = null; // clear the tile's parent
-                current = parent; // move to the next parent
-            }
-            return tiles.reverse();
-        }
-        // case DEFAULT: Move current node to the closed list.
-        openList.splice(currentNode, 1);
-        closedList.push(currentNode);
-        // Find the best score in the neighboring tile of the hex.
-        neighbors = this.neighbors(currentNode);
-        for(i=0, _len = neighbors.length; i < _len; i++) {
-            neighbor = neighbors[i];
-            if (closedList.indexOf(neighbor) > -1 
-                || neighbor.wall || neighbor.isOccupied() || currentNode.blocked(neighbor) || neighbor.blocked(currentNode)
-               ) {
-                   continue;
                }
                scoreG = currentNode.g + 1;
                scoreGBest = false;
@@ -1938,7 +1826,164 @@ Tiles.create = function(cols, rows) {
 
 module.exports = Tiles;
 
-},{"./tile":10}],28:[function(require,module,exports){var Stat = function() {
+},{"./tile":10}],18:[function(require,module,exports){var Stat = require('./stat');
+
+var Stats = function() {
+    this.initialize.apply(this, arguments);
+};
+
+/**
+ * @type {Array}
+ * @private
+ */
+Stats.prototype.list = null;
+
+/**
+ * @type {object}
+ * @private
+ */
+Stats.prototype._dictionary = null;
+
+/**
+ * @method initialize
+ * @protected
+ * @param {object} stats
+ */
+Stats.prototype.initialize = function(stats) {
+    this.list = [];
+    this._dictionary = {};
+    this.set(stats);
+    this.add('null', 0);
+};
+
+/**
+ * Add an attribute
+ * @method add
+ * @param {Stat|Object} data
+ * @param {String} data2
+ */
+Stats.prototype.add = function(name, val, max) {
+    var stat = new Stat(name, val, max);
+    this.list.push(stat);
+    this._dictionary[stat.name] = stat;
+};
+
+/**
+ * Override existing stat data.
+ * @method set
+ * @param {object} stats
+ */
+Stats.prototype.set = function (stats) {
+    var stat;
+    var value;
+    for (var key in stats) {
+        if (stats.hasOwnProperty(key)) {
+            value = stats[key];
+            if (value.max) {
+                value = value.max;
+            }
+            if ((stat = this.get(key))) {
+                stat.setBase(value);
+            } else {
+                this.add(new Stat(key, value));
+            }
+        }
+    }
+};
+
+/**
+ * Returns a re-parsed json equivalent.
+ * @method toJSON
+ * @return {Object}
+ */
+Stats.prototype.json = function() {
+    var attr = {};
+    for(var i=0; i<this.list.length;i++) {
+        var stat = this.list[i];
+        if (stat.name === 'null') {
+            continue;
+        }
+        attr[stat.name] = {
+            value: stat.value,
+            max: stat.max
+        };
+    }
+    return attr;
+};
+
+/**
+ * returns a Stat Object
+ * @method get
+ * @param name
+ * @return {Stat}
+ */
+Stats.prototype.get = function(name) {
+    var stat = this._dictionary[name];
+    if (!stat) {
+        stat = this.get('null');
+    }
+    return stat;
+};
+
+Stats.prototype.each = function(fn) {
+    var stat;
+    for (var i=0; i < this.list.length; i++) {
+        stat = this.list[i];
+        if (stat.name === 'null') {
+            continue;
+        }
+        if (fn(stat, i) === false) {
+            break;
+        }
+    };
+};
+
+module.exports = Stats;
+
+},{"./stat":28}],19:[function(require,module,exports){var Command = require('./command');
+var Collection = require('../collection');
+
+var Commands = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Commands.prototype = new Collection();
+Commands.prototype.__super = Collection.prototype;
+
+Commands.prototype.initialize = function(data) {
+    this.set.apply(this, arguments);
+    this.__super.initialize.apply(this);
+};
+
+Commands.prototype.get = function(id, fn) {
+    var command = this.__super.get.apply(this, arguments);
+    if (typeof fn === 'function') {
+        if (command) {
+            fn(command);
+        }
+    }
+    return command;
+};
+
+Commands.prototype.set = function(data) {
+    if (typeof data === 'object') {
+        for (var key in data) {
+            if (data.hasOwnProperty(key)) {
+                this.add(key, data[key]);
+            }
+        }
+    }
+
+};
+
+Commands.prototype.add = function(name, options) {
+    var command = new Command(name, options);
+    this.__super.add.call(this, command);
+};
+
+module.exports = Commands;
+
+},{"./command":29,"../collection":30}],28:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 

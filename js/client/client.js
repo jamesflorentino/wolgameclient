@@ -89,7 +89,12 @@ Client.prototype.initialize = function(game) {
                     var coord = HexUtil.coord(target.entity.tile, true);
                     var posX = coord.x + (unit.container.x > parent.container.x ? 10 : -10);
                     var direction = unit.direction;
-                    Tween.get(unit.container).to({
+                    Tween.get(unit.container)
+                    .wait(i * 50)
+                    .call(function() {
+                        unit.damage();
+                    })
+                    .to({
                         scaleX: 1.15 * direction,
                         scaleY: 1.15,
                         x: posX
@@ -97,8 +102,8 @@ Client.prototype.initialize = function(game) {
                         scaleX: 1 * direction,
                         scaleY: 1,
                         x: coord.x
-                    }, 300, Ease.backOut);
-                    unit.damage();
+                    }, 300, Ease.backOut)
+                    ;
                 });
             });
 
@@ -348,12 +353,12 @@ Client.prototype.unitEvents = function(unit, entity) {
 
     unit.on('tile:select', function inputSelect() {
         if (_this.game.currentTurn === entity) {
-            unit.emit('tile:move');
-            unit.emit('tile:act');
+            unit.emit('tile:select:move');
+            unit.emit('tile:select:act');
         }
     });
 
-    unit.on('tile:move', function() {
+    unit.on('tile:select:move', function() {
         var moveTiles;
         if (unit.tileSprites) {
             unit.emit('tiles:hide:path');
@@ -403,7 +408,7 @@ Client.prototype.unitEvents = function(unit, entity) {
         }
     });
 
-    unit.on('tile:act', function(command) {
+    unit.on('tile:select:act', function(command) {
         var targets;
         if (command || (command = entity.commands.first())) {
             if (unit.tileSpritesTarget) {
@@ -421,6 +426,8 @@ Client.prototype.unitEvents = function(unit, entity) {
                     });
                     return truthy;
                 });
+
+                console.log(targets);
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
                     var targetUnit;
@@ -475,14 +482,17 @@ Client.prototype.unitEvents = function(unit, entity) {
                             var splashTiles = game.tiles.neighbors(tile, command.splash);
                             splashTiles = _.filter(splashTiles, function(tile) {
                                 var entities = tile.entities;
-                                return entities.length;
+                                return entities.length && !entities[0].isDead();
                             });
+                            var targetTile = tile;
                             _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
                                 unit.tileSpritesTargetMark.push(tileSprite);
+                                var linePath = _this.createAttackLinePath(targetTile, tile);
+                                unit.tileSpritesTargetMark.push(linePath);
                             });
                         });
 
-                        var linePath = _this.createLinePath(entity.tile, tile);
+                        var linePath = _this.createAttackLinePath(entity.tile, tile);
                         unit.tileSpritesTargetMark.push(linePath);
                         unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
                     });
@@ -601,17 +611,19 @@ Client.prototype.createTile = function(name, tile, callback) {
     });
 };
 
-Client.prototype.createLinePath = function(tileA, tileB) {
+Client.prototype.createAttackLinePath = function(tileA, tileB) {
     var graphics = new createjs.Graphics();
     var linePath = new createjs.Shape(graphics);
     var coordA = HexUtil.coord(tileA, true);
     var coordB = HexUtil.coord(tileB, true);
     graphics
-        .beginFill('rgba(255,10,0,0.5)')
-        .setStrokeStyle(10, 'round')
+        //.beginStroke('white')
+        //.beginFill('white')
+        .setStrokeStyle(1, 'round')
+        .beginStroke('rgba(255,10,0,0.75)')
+        .beginFill('rgba(255,10,0,0.25)')
         .drawEllipse(coordA.x - 13, coordA.y - 7, 30, 15)
         .closePath()
-        .setStrokeStyle(1, 'round')
         .drawEllipse(coordA.x - 10, coordA.y - 5, 20, 10)
         ;
 

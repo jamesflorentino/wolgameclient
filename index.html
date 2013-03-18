@@ -17,6 +17,7 @@
                 -o-user-select: none;
                 user-select: none;
                 }
+            .hud #title-info,
             .hud #unit-info,
             .hud #logs {
                 position: absolute;
@@ -40,6 +41,11 @@
                 right: 10px;
                 left: 50%;
             }
+            .hud #title-info {
+                top: 10px;
+                left: 10px;
+                width: 25%;
+            }
             .container { position: relative; width: 900px; height: 500px; margin: auto; }
             @media screen
             and (max-device-width: 480px) 
@@ -56,6 +62,7 @@
         <div class="container center">
             <div class="hud">
                 <div id="logs"></div>
+                <div id="title-info">Wings of Lemuria - Game Server demo (offline)</div>
                 <div id="unit-info"></div>
             </div>
             <canvas id="game" width="900" height="500"></canvas>
