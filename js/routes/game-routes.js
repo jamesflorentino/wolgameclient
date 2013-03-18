@@ -71,7 +71,7 @@ function gameRoutes(socket, game) {
     });
 
     socket.on('unit/turn', function(data) {
-        console.log('turn', data);
+        //console.log('turn', data);
         routes.emit('unit:' + data.c, data);
     });
 }

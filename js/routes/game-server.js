@@ -141,8 +141,26 @@ function serverEmulator(socket) {
 
         this.spawn = function spawn(time) {
             return this.wait(time, function() {
-                spawnUnitAtRandomRow('left', 'marine');
-                spawnUnitAtRandomRow('right', 'vanguard');
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 2,
+                    y: 4
+                });
+                //routes.emit('unit:create', {
+                //    c: 'create',
+                //    id: 'vanguard',
+                //    x: 0,
+                //    y: 0
+                //});
+                //routes.emit('unit:create', {
+                //    c: 'create',
+                //    id: 'vanguard',
+                //    x: 2,
+                //    y: 0
+                //});
+                //spawnUnitAtRandomRow('left', 'marine');
+                //spawnUnitAtRandomRow('right', 'vanguard');
             });
         };
 

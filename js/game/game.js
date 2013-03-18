@@ -93,11 +93,10 @@ Game.prototype.loadMap = function(tiles) {
     var _this = this;
     _.each(tiles, function(t) {
         _this.tiles.get(t.x, t.y, function(tile) {
-            if (t.hasOwnProperty('wall')) {
-                tile.wall = Boolean(t.wall);
-            }
-            if (t.hasOwnProperty('type')) {
-                tile.type = t.type;
+            for(var key in t) {
+                if (t.hasOwnProperty(key)) {
+                    tile[key] = t[key];
+                }
             }
         });
     });

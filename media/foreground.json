@@ -2,14 +2,18 @@
 "images": ["foreground.png"],
 "frames": [
 
-    [2, 2, 81, 84]
+    [2, 2, 44, 68], 
+    [48, 2, 44, 80], 
+    [94, 2, 81, 84]
 ],
 "animations": {
     
-        "wall0":[0]
+        "cover0-a":[0], 
+        "cover0-b":[1], 
+        "wall0":[2]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:b81d90ce2019119315dc2796807442ae$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:a528456c83f834fbdbdf1d53706075cd$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 }

@@ -166,17 +166,32 @@ Client.prototype.createFGElement = function(name, tile, callback) {
             regX: regX,
             regY: regY
         });
-        _this.layers.foreground.addChild(animation);
+        _this.setSpriteDepth(animation, tile.z);
         if (typeof callback === 'function') {
-            callback(null, animation);
+            callback(animation);
         }
     }
+    return animation;
 };
 
 Client.prototype.createSprite = function(name, callback) {
     var animation = new createjs.BitmapAnimation(this.spriteSheets.common);
     animation.gotoAndStop(name);
     callback(null, animation);
+};
+
+Client.prototype.setSpriteDepth = function(sprite, zIndex) {
+    var i, index, _len, container, child;
+    container = this.layers.units;
+    sprite.z = zIndex;
+    container.removeChild(sprite);
+    for(i = 0, _len = container.children.length; i < _len; i++) {
+        child = container.children[i];
+        if (child.z >= sprite.z) {
+            break;
+        }
+    }
+    container.addChildAt(sprite, i);
 };
 
 Client.prototype.createUnit = function(entity, callback) {
@@ -264,6 +279,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                             }
                             unit.prevX = tileSprite.x;
                             unit.prevY = tileSprite.y;
+                            unit.currentTileZ = tile.z;
                             unit.move(tile);
                         })
                         .to({
@@ -317,19 +333,8 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('move', function sortUnits(tile) {
-        var index = 0;
-        for(var i=0, _len = game.entities.length; i < _len; i++) {
-            if (tile.z >= game.entities[i].tile.z) {
-                index = i;
-            }
-        }
-        var container = unit.container;
-        var entityIndex = index;
-        var unitIndex = container.parent.getChildIndex(container);
-
-        if (entityIndex !== unitIndex) {
-            container.parent.addChildAt(container, entityIndex);
-        }
+        var z = unit.currentTileZ !== null ? unit.currentTileZ : tile.z;
+        _this.setSpriteDepth(unit.container, unit.currentTileZ || tile.z);
     });
 
     unit.on('tile:select', function inputSelect() {
@@ -357,7 +362,9 @@ Client.prototype.unitEvents = function(unit, entity) {
             _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
                 tileSprite.addEventListener('click', function() {
                     var tiles, pathSpriteObject, lastTile;
-                    tiles = [entity.tile].concat(game.tiles.findPath(entity.tile, tile));
+                    var path = game.tiles.findPath(entity.tile, tile);
+                    console.log(path);
+                    tiles = [entity.tile].concat(path);
                     unit.emit('tiles:hide:target');
                     unit.emit('tiles:hide:path');
                     pathSpriteObject = _this.generateTilePath(tiles);
@@ -672,7 +679,6 @@ Client.prototype.spawnUnit = function(unit, tile, callback) {
 
 Client.prototype.addUnit = function(id, unit, callback) {
     this.units[id] = unit;
-    this.layers.units.addChild(unit.container);
     callback(null, unit);
 };
 
@@ -720,7 +726,6 @@ Client.prototype.setTiles = function(tiles, callback) {
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
-    this.layers.terrain.addChild(this.layers.foreground); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     if (typeof callback === 'function') {
@@ -752,10 +757,8 @@ Client.prototype.initializeLayers = function(callback) {
     this.layers.terrain = new createjs.Container();
     this.layers.tiles = new createjs.Container();
     this.layers.units = new createjs.Container();
-    this.layers.foreground = new createjs.Container();
     this.layers.terrain.addChild(this.layers.tiles);
     this.layers.terrain.addChild(this.layers.units);
-    this.layers.terrain.addChild(this.layers.foreground);
     this.stage.addChild(this.layers.terrain);
     callback(null);
 };

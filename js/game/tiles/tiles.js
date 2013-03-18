@@ -70,7 +70,6 @@ Tiles.prototype.neighbors = function(tile) {
 };
 
 /**
- * Returns a list of arrays via the path-finding algorithm.
  * @method findPath
  * @param {Tile} start starting tile
  * @param {Tile} end target tile
@@ -88,6 +87,7 @@ Tiles.prototype.findPath = function(start, end) {
     _len;
     openList = [start];
     closedList = [];
+
     while(openList.length) {
         var lowestIndex = 0;
         for(i=0,_len = openList.length; i < _len; i++) {
@@ -97,7 +97,7 @@ Tiles.prototype.findPath = function(start, end) {
         }
         currentNode = openList[lowestIndex];
         // case END: The result has been found.
-        if (currentNode.pos() === end.pos()) {
+        if (currentNode.x === end.x && currentNode.y === end.y) {
             var current = currentNode;
             var parent;
             var tiles = [];
@@ -116,24 +116,26 @@ Tiles.prototype.findPath = function(start, end) {
         neighbors = this.neighbors(currentNode);
         for(i=0, _len = neighbors.length; i < _len; i++) {
             neighbor = neighbors[i];
-            if (closedList.indexOf(neighbor) > -1 || neighbor.wall || neighbor.entities.length > 0) {
-                continue;
-            }
-            scoreG = currentNode.g + 1;
-            scoreGBest = false;
-            // if it's the first time to touch this tile.
-            if(openList.indexOf(neighbor) === -1) {
-                scoreGBest = true;
-                neighbor.h = this.euclidean(neighbor, end);
-                openList.push(neighbor);
-            } else if (scoreG < neighbor.g) {
-                scoreGBest = true;
-            }
-            if (scoreGBest) {
-                neighbor.parent = currentNode;
-                neighbor.g = scoreG;
-                neighbor.f = neighbor.g + neighbor.h;
-            }
+            if (closedList.indexOf(neighbor) > -1 
+                || neighbor.wall || neighbor.isOccupied() || currentNode.blocked(neighbor) || neighbor.blocked(currentNode)
+               ) {
+                   continue;
+               }
+               scoreG = currentNode.g + 1;
+               scoreGBest = false;
+               // if it's the first time to touch this tile.
+               if(openList.indexOf(neighbor) === -1) {
+                   scoreGBest = true;
+                   neighbor.h = this.euclidean(neighbor, end);
+                   openList.push(neighbor);
+               } else if (scoreG < neighbor.g) {
+                   scoreGBest = true;
+               }
+               if (scoreGBest) {
+                   neighbor.parent = currentNode;
+                   neighbor.g = scoreG;
+                   neighbor.f = neighbor.g + neighbor.h;
+               }
         }
     }
     return [];
@@ -145,11 +147,17 @@ Tiles.prototype.findPath = function(start, end) {
  * @param {object} destination
  * @return {Number}
  */
-Tiles.prototype.euclidean = function(start, destination) {
+Tiles.prototype.euclidean = function(start, destination, cost) {
     var vectorX, vectorY;
-    vectorX = Math.pow(start.x - destination.x, 2);
-    vectorY = Math.pow(start.y - destination.y, 2);
-    return Math.sqrt(vectorX + vectorY);
+    if (cost === null) {
+        cost = 1;
+    }
+    //vectorX = Math.pow(start.x - destination.x, 2);
+    //vectorY = Math.pow(start.y - destination.y, 2);
+    //return Math.sqrt(vectorX + vectorY);
+    vectorX = start.x - destination.x;
+    vectorY = start.y - destination.y;
+    return Math.sqrt(vectorX * vectorX + vectorY * vectorY) * cost;
 };
 
 

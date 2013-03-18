@@ -55,12 +55,32 @@ Tile.prototype.occupy = function(entity) {
     }
 };
 
+Tile.prototype.blocked = function(tile) {
+    var x = tile.x;
+    var y = tile.y;
+    var wall, blocked;
+    if (this.walls) {
+        for (var i = this.walls.length - 1; i >= 0; i--){
+            var wall = this.walls[i];
+            if (wall[0] == x && wall[1] === y) {
+                blocked = true;
+                break;
+            }
+        };
+    }
+    return blocked;
+};
+
 /**
  * @method vacate
  * @param {Object} entity
  */
 Tile.prototype.vacate = function(entity) {
     this.entities.splice(this.entities.indexOf(entity), 1);
+};
+
+Tile.prototype.isOccupied = function() {
+    return this.entities.length > 0;
 };
 
 Tile.prototype.has = function(entity) {
