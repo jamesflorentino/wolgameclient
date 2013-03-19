@@ -154,8 +154,20 @@ function serverEmulator(socket) {
             return this.wait(time, function() {
                 routes.emit('unit:create', {
                     c: 'create',
-                    id: 'marine',
-                    x: 6,
+                    id: 'vanguard',
+                    x: 2,
+                    y: 6
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 1,
+                    y: 1
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 2,
                     y: 3
                 });
                 routes.emit('unit:create', {
@@ -163,12 +175,6 @@ function serverEmulator(socket) {
                     id: 'vanguard',
                     x: 3,
                     y: 3
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 2,
-                    y: 4
                 });
                 //routes.emit('unit:create', {
                 //    c: 'create',

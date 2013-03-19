@@ -19,3 +19,4 @@ function convert(filename) {
 
 convert('common');
 convert('foreground');
+convert('particles');

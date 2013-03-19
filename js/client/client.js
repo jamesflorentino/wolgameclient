@@ -38,11 +38,7 @@ Client.prototype.initialize = function(game) {
     });
 
     this.game.on('unit:add', function(entity) {
-        _this.createUnit(entity, function(unit) {
-            //unit.container.addEventListener('click', function() {
-            //    _this.emit('unit:info', entity);
-            //});
-        });
+        _this.createUnit(entity);
     });
 
     this.game.on('unit:act', function(data) {
@@ -52,7 +48,7 @@ Client.prototype.initialize = function(game) {
             var tileSprites = [];
             /** Tell the active unit to which direction to face **/
             _this.getUnit(data.targets[0].id, function(unit) {
-                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
+                parent.face(unit.container.x > parent.container.x ? 'right' : 'left');
             });
             _.each(data.targets, function(target) {
                 _this.getUnit(target.id, function(unit) {
@@ -67,7 +63,6 @@ Client.prototype.initialize = function(game) {
                 unit.removeAllListeners('act:end');
                 unit.removeAllListeners('act');
                 _.each(targets, function(target) {
-                    var entity = target.entity;
                     var unit = target.unit;
                     var damage = target.damage;
                     _this.showDamage(unit, damage);
@@ -99,7 +94,7 @@ Client.prototype.initialize = function(game) {
                         scaleY: 1.15,
                         x: posX
                     }).to({
-                        scaleX: 1 * direction,
+                        scaleX: direction,
                         scaleY: 1,
                         x: coord.x
                     }, 300, Ease.backOut)
@@ -194,8 +189,15 @@ Client.prototype.createSprite = function(name, callback) {
     callback(null, animation);
 };
 
+Client.prototype.createParticle = function(name, fn) {
+    var animation = new createjs.BitmapAnimation(this.spriteSheets.particles);
+    animation.gotoAndStop(name);
+    fn(animation);
+    return animation;
+};
+
 Client.prototype.setSpriteDepth = function(sprite, zIndex) {
-    var i, index, _len, container, child;
+    var i, _len, container, child;
     container = this.layers.units;
     sprite.z = zIndex;
     container.removeChild(sprite);
@@ -227,7 +229,6 @@ Client.prototype.createUnit = function(entity, callback) {
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
-
 
     entity.on('die', function() {
         _this.removeUnit(unit);
@@ -271,10 +272,26 @@ Client.prototype.unitEvents = function(unit, entity) {
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
         Tween.removeTweens(unit.container);
+
         if (unit.tilePathObject) {
             _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
             _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
         }
+
+        if (unit.particles) {
+            _.each(unit.particles, function(particle) {
+                Tween.get(particle)
+                .to({
+                    y: particle.y + 40,
+                    alpha: 0
+                }, 800, Ease.backIn)
+                .call(function() {
+                    particle.parent.removeChild(particle);
+                });
+            });
+            unit.particles = [];
+        }
+
         tween = Tween.get(unit.container);
         unit.tilePathObject = _this.generateTilePath(
             [prevTile].concat(path),
@@ -347,8 +364,13 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('move', function sortUnits(tile) {
-        var z = unit.currentTileZ !== null ? unit.currentTileZ : tile.z;
         _this.setSpriteDepth(unit.container, unit.currentTileZ || tile.z);
+    });
+
+    unit.on('move:end', function() {
+        _this.showTileBonus(entity.tile, function(particle) {
+            unit.particles = [particle];
+        });
     });
 
     unit.on('tile:select', function inputSelect() {
@@ -421,8 +443,10 @@ Client.prototype.unitEvents = function(unit, entity) {
                     var truthy = tile.entities.length > 0;
                     _.each(tile.entities, function(entity) {
                         if (entity.stats.get('health').val() === 0) {
-                            return (truthy = false);
+                            //return (truthy = false);
+                            truthy = false;
                         }
+                        return truthy;
                     });
                     return truthy;
                 });
@@ -483,7 +507,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                                 return entities.length && entities[0] !== entity && !entities[0].isDead();
                             });
                             var targetTile = tile;
-                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
+                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile) {
                                 unit.tileSpritesTargetMark.push(tileSprite);
                                 var linePath = _this.createAttackLinePath(targetTile, tile);
                                 unit.tileSpritesTargetMark.push(linePath);
@@ -556,6 +580,36 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 };
 
+
+Client.prototype.showTileBonus = function(tile, fn) {
+    var _this = this;
+    var name;
+    if (_.has(tile, 'attack')) {
+        name = 'atkup';
+    } else if (_.has(tile, 'defense')) {
+        name = 'defup';
+    }
+    if (name) {
+        _this.createParticle(name, function(particle) {
+            var coord = HexUtil.coord(tile, true);
+            var origX = coord.x + 20;
+            var origY = coord.y - 40;
+            particle.set({
+                x: origX,
+                y: origY + 40
+            });
+            Tween.get(particle)
+                .to({
+                    y: origY
+                }, 850, Ease.backOut);
+            _this.layers.particles.addChild(particle);
+            if (typeof fn === 'function') {
+                fn(particle);
+            }
+        });
+    }
+};
+
 Client.prototype.showDamage = function(unit, damage) {
     var _this = this;
     var spacing = 0;
@@ -571,20 +625,20 @@ Client.prototype.showDamage = function(unit, damage) {
             });
             _this.layers.terrain.addChild(sprite);
             Tween.get(sprite)
-                .wait(i * 80)
-                .to({
-                    x: posX,
-                    y: posY - 20,
-                    alpha: 1
-                }, 400, Ease.backOut)
-                .wait(2000)
-                .to({
-                    y: posY + 20,
-                    alpha: 0
-                }, 500, Ease.quartIn)
-                .call(function() {
-                    sprite.parent.removeChild(sprite);
-                });
+            .wait(i * 80)
+            .to({
+                x: posX,
+                y: posY - 20,
+                alpha: 1
+            }, 400, Ease.backOut)
+            .wait(2000)
+            .to({
+                y: posY + 20,
+                alpha: 0
+            }, 500, Ease.quartIn)
+            .call(function() {
+                sprite.parent.removeChild(sprite);
+            });
         });
     });
 };
@@ -733,6 +787,16 @@ Client.prototype.getSpriteSheet = function(name, callback) {
     callback(null, spriteSheet);
 };
 
+Client.prototype.getTileSpriteName = function(tile) {
+    var tileName = 'hex_bg_inset';
+    if (_.has(tile, 'attack')) {
+        tileName = 'hex_atkup';
+    } else if (_.has(tile, 'defense')) {
+        tileName = 'hex_defup';
+    }
+    return tileName;
+};
+
 Client.prototype.setTiles = function(tiles, callback) {
     var _this = this, cacheContainer;
     var terrainWidth = HexUtil.WIDTH * settings.columns + (HexUtil.WIDTH * 0.5);
@@ -741,10 +805,19 @@ Client.prototype.setTiles = function(tiles, callback) {
         cacheContainer.parent.removeChild(cacheContainer);
     }
     cacheContainer = new createjs.Container();
-    tiles.each(function(tile, i) {
+    tiles.each(function(tile) {
+        var tileName = _this.getTileSpriteName(tile);
+        var t;
         if (!tile.wall) {
-            _this.createSprite('hex_bg_inset', function(err, tileSprite) {
+            _this.createSprite(tileName, function(err, tileSprite) {
                 HexUtil.position(tileSprite, tile);
+                if (_this.debug) {
+                    t = new createjs.Text(tile.pos(), "10px Arial", "rgba(255, 255, 255, 0.5)");
+                    t.textBaseLine = "ideographic";
+                    t.textAlign = 'center';
+                    HexUtil.position(t, tile, true);
+                    cacheContainer.addChild(t);
+                }
                 cacheContainer.addChild(tileSprite);
             });
         }
@@ -757,6 +830,7 @@ Client.prototype.setTiles = function(tiles, callback) {
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
+    this.layers.terrain.addChild(this.layers.particles); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     if (typeof callback === 'function') {
@@ -788,8 +862,10 @@ Client.prototype.initializeLayers = function(callback) {
     this.layers.terrain = new createjs.Container();
     this.layers.tiles = new createjs.Container();
     this.layers.units = new createjs.Container();
+    this.layers.particles = new createjs.Container();
     this.layers.terrain.addChild(this.layers.tiles);
     this.layers.terrain.addChild(this.layers.units);
+    this.layers.terrain.addChild(this.layers.particles);
     this.stage.addChild(this.layers.terrain);
     callback(null);
 };

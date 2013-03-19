@@ -266,7 +266,9 @@ EventEmitter.prototype.listeners = function(type) {
 },{}],5:[function(require,module,exports){var base = [
     //{ x: 4, y: 0, wall: 1 },
     //{ x: 4, y: 1, wall: 1 },
-    { x: 3, y: 3, defense: 50, type: 'cover0-a', walls: [[4,3]]},
+    { x: 3, y: 3, defense: 50, walls: [[4,3]]},
+    { x: 1, y: 5, attack: 2150},
+    { x: 1, y: 4, defense: 2150},
     //{ x: 4, y: 2, wall: 1, type: 'wall0' },
     //{ x: 4, y: 3, wall: 1 },
     //{ x: 4, y: 4, wall: 1 },
@@ -282,6 +284,56 @@ EventEmitter.prototype.listeners = function(type) {
 module.exports = base;
 
 },{}],6:[function(require,module,exports){var logs = require('../logs');
+
+function clientEvents(game, client, socket) {
+    var log = logs('#unit-info', true);
+
+    client.on('unit:info', function(entity) {
+        var stats = "";
+        var commands = '';
+        entity.stats.each(function(stat) {
+            stats += "- " + stat.name + ":" + stat.val() + "/" + stat.max + "<br>";
+        });
+
+        entity.commands.each(function(command) {
+            commands += '- ' + command.id + ': ' + command.damage + ' damage' + '<br>';
+        });
+
+        log(
+            'unit type: ' + entity.type, '<br>',
+            '--------------------------------', '<br>',
+            'stats', '<br>',
+            stats,
+            '--------------------------------', '<br>',
+            'commands', '<br>',
+            commands
+        );
+    });
+
+    client.on('input:move', function(data) {
+        socket.emit('unit:turn', {
+            c: 'move',
+            id: data.entity.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
+
+    client.on('input:act', function(data) {
+        socket.emit('unit:turn', {
+            c: 'act',
+            id: data.entity.id,
+            target: data.target.id,
+            command: data.command.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
+}
+
+module.exports = clientEvents;
+
+},{"../logs":7}],8:[function(require,module,exports){var logs = require('../logs');
 var EventEmitter = require('events').EventEmitter;
 var unitTypes = require('../game/unit-types');
 
@@ -361,57 +413,7 @@ function gameRoutes(socket, game) {
 
 module.exports = gameRoutes;
 
-},{"events":2,"../logs":7,"../game/unit-types":8}],9:[function(require,module,exports){var logs = require('../logs');
-
-function clientEvents(game, client, socket) {
-    var log = logs('#unit-info', true);
-
-    client.on('unit:info', function(entity) {
-        var stats = "";
-        var commands = '';
-        entity.stats.each(function(stat) {
-            stats += "- " + stat.name + ":" + stat.val() + "/" + stat.max + "<br>";
-        });
-
-        entity.commands.each(function(command) {
-            commands += '- ' + command.id + ': ' + command.damage + ' damage' + '<br>';
-        });
-
-        log(
-            'unit type: ' + entity.type, '<br>',
-            '--------------------------------', '<br>',
-            'stats', '<br>',
-            stats,
-            '--------------------------------', '<br>',
-            'commands', '<br>',
-            commands
-        );
-    });
-
-    client.on('input:move', function(data) {
-        socket.emit('unit:turn', {
-            c: 'move',
-            id: data.entity.id,
-            x: data.tile.x,
-            y: data.tile.y
-        });
-    });
-
-    client.on('input:act', function(data) {
-        socket.emit('unit:turn', {
-            c: 'act',
-            id: data.entity.id,
-            target: data.target.id,
-            command: data.command.id,
-            x: data.tile.x,
-            y: data.tile.y
-        });
-    });
-}
-
-module.exports = clientEvents;
-
-},{"../logs":7}],10:[function(require,module,exports){var Tile = function() {
+},{"events":2,"../logs":7,"../game/unit-types":9}],10:[function(require,module,exports){var Tile = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -505,7 +507,31 @@ Tile.create = function() {
 };
 module.exports = Tile;
 
-},{}],11:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
+},{}],11:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],12:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
 /*global createjs*/
 var Preloader = function() {
     this.manifest = [];
@@ -534,31 +560,7 @@ Preloader.prototype.getResource = function(idOrURL) {
 module.exports = Preloader;
 
 })()
-},{"events":2}],12:[function(require,module,exports){var HexUtil = {
-    WIDTH: 81,
-    HEIGHT: 60,
-    position: function(hex, tile, center) {
-        var coord = this.coord(tile, center);
-        hex.regX = this.WIDTH * 0.5;
-        hex.regY = this.HEIGHT * 0.5;
-        hex.x = coord.x + hex.regX;
-        hex.y = coord.y + hex.regY;
-        return coord;
-    },
-    coord: function(tile, center) {
-        if (tile === undefined) {
-            return null;
-        }
-        return {
-            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
-            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
-        };
-    }
-};
-
-module.exports = HexUtil;
-
-},{}],13:[function(require,module,exports){module.exports = {
+},{"events":2}],13:[function(require,module,exports){module.exports = {
     'wall0': {
         regY: 25,
     },
@@ -572,7 +574,7 @@ module.exports = HexUtil;
     setTimeout(fn, time);
 };
 
-},{}],8:[function(require,module,exports){module.exports = {
+},{}],9:[function(require,module,exports){module.exports = {
     vanguard: {
         stats: {
             range: 2,
@@ -582,9 +584,9 @@ module.exports = HexUtil;
         commands: {
             dualshot: {
                 damage: 300,
-                range: 1,
+                range: 3,
                 cooldown: 0,
-                splash: 0
+                splash: 5
             }
         }
     },
@@ -1005,10 +1007,11 @@ module.exports = GameEntity;
     marine: require('./marine'),
     vanguard: require('./vanguard'),
     common: require('./common'),
+    particles: require('./particles'),
     foreground: require('./foreground')
 };
 
-},{"./marine":21,"./vanguard":22,"./common":23,"./foreground":24}],25:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
+},{"./marine":21,"./vanguard":22,"./common":23,"./particles":24,"./foreground":25}],26:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
 var frameData = require('../frames/marine');
 
 var spriteSheet = new createjs.SpriteSheet(frameData);
@@ -1095,7 +1098,7 @@ Marine.prototype.die = function() {
 
 module.exports = Marine;
 
-},{"../unit-sprite":26,"../frames/marine":21}],27:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
+},{"../unit-sprite":27,"../frames/marine":21}],28:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
 var frameData = require('../frames/vanguard');
 
 var spriteSheet = new createjs.SpriteSheet(frameData);
@@ -1170,7 +1173,7 @@ Vanguard.prototype.die = function() {
 
 module.exports = Vanguard;
 
-},{"../unit-sprite":26,"../frames/vanguard":22}],21:[function(require,module,exports){module.exports = {
+},{"../unit-sprite":27,"../frames/vanguard":22}],21:[function(require,module,exports){module.exports = {
     "frames": [
         [1528, 0, 52, 78, 0, 18, 68],
         [1015, 0, 52, 78, 0, 18, 68],
@@ -1526,7 +1529,9 @@ module.exports = Vanguard;
 "frames": [
 
     [85, 2, 98, 65], 
+    [435, 2, 81, 60], 
     [2, 2, 81, 72], 
+    [434, 64, 81, 60], 
     [352, 2, 81, 60], 
     [351, 64, 81, 60], 
     [269, 2, 81, 60], 
@@ -1549,33 +1554,54 @@ module.exports = Vanguard;
 "animations": {
     
         "hex_active":[0], 
-        "hex_bg":[1], 
-        "hex_bg_inset":[2], 
-        "hex_move":[3], 
-        "hex_move_select":[4], 
-        "hex_target":[5], 
-        "hex_target_mark":[6], 
-        "hpbar_bar":[7], 
-        "hpbar_bg":[8], 
-        "n-0":[9], 
-        "n-1":[10], 
-        "n-2":[11], 
-        "n-3":[12], 
-        "n-4":[13], 
-        "n-5":[14], 
-        "n-6":[15], 
-        "n-7":[16], 
-        "n-8":[17], 
-        "n-9":[18], 
-        "unit-shadow":[19]
+        "hex_atkup":[1], 
+        "hex_bg":[2], 
+        "hex_bg_inset":[3], 
+        "hex_defup":[4], 
+        "hex_move":[5], 
+        "hex_move_select":[6], 
+        "hex_target":[7], 
+        "hex_target_mark":[8], 
+        "hpbar_bar":[9], 
+        "hpbar_bg":[10], 
+        "n-0":[11], 
+        "n-1":[12], 
+        "n-2":[13], 
+        "n-3":[14], 
+        "n-4":[15], 
+        "n-5":[16], 
+        "n-6":[17], 
+        "n-7":[18], 
+        "n-8":[19], 
+        "n-9":[20], 
+        "unit-shadow":[21]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:dbbfa736bf9cd6a4ab3ad6c28886712c$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:3da8970596327701dbccfb6d14db0024$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 }
 ;
 },{}],24:[function(require,module,exports){module.exports = {
+"images": ["media/particles.png"],
+"frames": [
+
+    [2, 2, 20, 23], 
+    [2, 27, 20, 25]
+],
+"animations": {
+    
+        "atkup":[0], 
+        "defup":[1]
+},
+"texturepacker": [
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:1c1840350e5e1d203ff702617e1dacf7$",
+        "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
+]
+}
+;
+
+},{}],25:[function(require,module,exports){module.exports = {
 "images": ["media/foreground.png"],
 "frames": [
 
@@ -1595,7 +1621,7 @@ module.exports = Vanguard;
 ]
 }
 ;
-},{}],26:[function(require,module,exports){(function(){/*global createjs */
+},{}],27:[function(require,module,exports){(function(){/*global createjs */
 
 var EventEmitter = require('events').EventEmitter;
 
@@ -1637,7 +1663,6 @@ UnitSprite.prototype.moveStart = function() {
 };
 
 UnitSprite.prototype.moveEnd = function() {
-    console.log('move end');
     this.emit('move:end');
 };
 
@@ -1976,7 +2001,7 @@ Stats.prototype.each = function(fn) {
 
 module.exports = Stats;
 
-},{"./stat":28}],19:[function(require,module,exports){var Command = require('./command');
+},{"./stat":29}],19:[function(require,module,exports){var Command = require('./command');
 var Collection = require('../collection');
 
 var Commands = function() {
@@ -2019,7 +2044,7 @@ Commands.prototype.add = function(name, options) {
 
 module.exports = Commands;
 
-},{"./command":29,"../collection":30}],28:[function(require,module,exports){var Stat = function() {
+},{"./command":30,"../collection":31}],29:[function(require,module,exports){var Stat = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -2131,7 +2156,7 @@ Stat.prototype.val = function() {
 
 module.exports = Stat;
 
-},{}],29:[function(require,module,exports){var Command = function() {
+},{}],30:[function(require,module,exports){var Command = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -2199,7 +2224,7 @@ Command.create = function(data, callback) {
 
 module.exports = Command;
 
-},{}],30:[function(require,module,exports){var Collection = function() {
+},{}],31:[function(require,module,exports){var Collection = function() {
     this.initialize();
 };
 
@@ -2249,7 +2274,7 @@ Collection.prototype.each = function(fn) {
 
 module.exports = Collection;
 
-},{}],31:[function(require,module,exports){/**
+},{}],32:[function(require,module,exports){/**
  * @author James Florentino
  */
 
@@ -2295,6 +2320,7 @@ window.addEventListener('load', function() {
     Game.create(function(err, game) {
         game.loadMap(baseLevel);
         Client.create(game, function(err, client) {
+            //client.debug = true;
             client.preloader.load(assetManifest, function(err) {
                 client.setScene(document.querySelector('canvas#game'), function(err) {
                     clientEvents(game, client, socket);
@@ -2313,7 +2339,7 @@ window.addEventListener('load', function() {
     });
 });
 
-},{"events":2,"./client/asset-manifest.js":3,"./game/game":32,"./client/client":33,"./client/settings":4,"./routes/game-server":34,"./routes/client-routes":9,"./routes/game-routes":6,"./levels/base":5,"underscore":35}],35:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
+},{"events":2,"./client/asset-manifest.js":3,"./game/game":33,"./client/client":34,"./client/settings":4,"./routes/game-server":35,"./routes/client-routes":6,"./routes/game-routes":8,"./levels/base":5,"underscore":36}],36:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
 //     http://underscorejs.org
 //     (c) 2009-2013 Jeremy Ashkenas, DocumentCloud Inc.
 //     Underscore may be freely distributed under the MIT license.
@@ -3541,7 +3567,7 @@ window.addEventListener('load', function() {
 }).call(this);
 
 })()
-},{}],32:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
+},{}],33:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
 var EventEmitter = require('events').EventEmitter;
 var GameEntity = require('./entity');
 var Tile = require('./tiles/tile');
@@ -3726,7 +3752,7 @@ Game.create = function(callback) {
 
 module.exports = Game;
 
-},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":35}],33:[function(require,module,exports){(function(){/*global createjs */
+},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":36}],34:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -3766,11 +3792,7 @@ Client.prototype.initialize = function(game) {
     });
 
     this.game.on('unit:add', function(entity) {
-        _this.createUnit(entity, function(unit) {
-            //unit.container.addEventListener('click', function() {
-            //    _this.emit('unit:info', entity);
-            //});
-        });
+        _this.createUnit(entity);
     });
 
     this.game.on('unit:act', function(data) {
@@ -3780,7 +3802,7 @@ Client.prototype.initialize = function(game) {
             var tileSprites = [];
             /** Tell the active unit to which direction to face **/
             _this.getUnit(data.targets[0].id, function(unit) {
-                parent.face(unit.container.x > parent.container.x ? 'right' : 'left')
+                parent.face(unit.container.x > parent.container.x ? 'right' : 'left');
             });
             _.each(data.targets, function(target) {
                 _this.getUnit(target.id, function(unit) {
@@ -3795,7 +3817,6 @@ Client.prototype.initialize = function(game) {
                 unit.removeAllListeners('act:end');
                 unit.removeAllListeners('act');
                 _.each(targets, function(target) {
-                    var entity = target.entity;
                     var unit = target.unit;
                     var damage = target.damage;
                     _this.showDamage(unit, damage);
@@ -3827,7 +3848,7 @@ Client.prototype.initialize = function(game) {
                         scaleY: 1.15,
                         x: posX
                     }).to({
-                        scaleX: 1 * direction,
+                        scaleX: direction,
                         scaleY: 1,
                         x: coord.x
                     }, 300, Ease.backOut)
@@ -3922,8 +3943,15 @@ Client.prototype.createSprite = function(name, callback) {
     callback(null, animation);
 };
 
+Client.prototype.createParticle = function(name, fn) {
+    var animation = new createjs.BitmapAnimation(this.spriteSheets.particles);
+    animation.gotoAndStop(name);
+    fn(animation);
+    return animation;
+};
+
 Client.prototype.setSpriteDepth = function(sprite, zIndex) {
-    var i, index, _len, container, child;
+    var i, _len, container, child;
     container = this.layers.units;
     sprite.z = zIndex;
     container.removeChild(sprite);
@@ -3955,7 +3983,6 @@ Client.prototype.createUnit = function(entity, callback) {
 Client.prototype.unitEvents = function(unit, entity) {
     var game = this.game,
     _this = this;
-
 
     entity.on('die', function() {
         _this.removeUnit(unit);
@@ -3999,10 +4026,26 @@ Client.prototype.unitEvents = function(unit, entity) {
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
         Tween.removeTweens(unit.container);
+
         if (unit.tilePathObject) {
             _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
             _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
         }
+
+        if (unit.particles) {
+            _.each(unit.particles, function(particle) {
+                Tween.get(particle)
+                .to({
+                    y: particle.y + 40,
+                    alpha: 0
+                }, 800, Ease.backIn)
+                .call(function() {
+                    particle.parent.removeChild(particle);
+                });
+            });
+            unit.particles = [];
+        }
+
         tween = Tween.get(unit.container);
         unit.tilePathObject = _this.generateTilePath(
             [prevTile].concat(path),
@@ -4075,8 +4118,13 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('move', function sortUnits(tile) {
-        var z = unit.currentTileZ !== null ? unit.currentTileZ : tile.z;
         _this.setSpriteDepth(unit.container, unit.currentTileZ || tile.z);
+    });
+
+    unit.on('move:end', function() {
+        _this.showTileBonus(entity.tile, function(particle) {
+            unit.particles = [particle];
+        });
     });
 
     unit.on('tile:select', function inputSelect() {
@@ -4149,8 +4197,10 @@ Client.prototype.unitEvents = function(unit, entity) {
                     var truthy = tile.entities.length > 0;
                     _.each(tile.entities, function(entity) {
                         if (entity.stats.get('health').val() === 0) {
-                            return (truthy = false);
+                            //return (truthy = false);
+                            truthy = false;
                         }
+                        return truthy;
                     });
                     return truthy;
                 });
@@ -4211,7 +4261,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                                 return entities.length && entities[0] !== entity && !entities[0].isDead();
                             });
                             var targetTile = tile;
-                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile, i) {
+                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile) {
                                 unit.tileSpritesTargetMark.push(tileSprite);
                                 var linePath = _this.createAttackLinePath(targetTile, tile);
                                 unit.tileSpritesTargetMark.push(linePath);
@@ -4284,6 +4334,36 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 };
 
+
+Client.prototype.showTileBonus = function(tile, fn) {
+    var _this = this;
+    var name;
+    if (_.has(tile, 'attack')) {
+        name = 'atkup';
+    } else if (_.has(tile, 'defense')) {
+        name = 'defup';
+    }
+    if (name) {
+        _this.createParticle(name, function(particle) {
+            var coord = HexUtil.coord(tile, true);
+            var origX = coord.x + 20;
+            var origY = coord.y - 40;
+            particle.set({
+                x: origX,
+                y: origY + 40
+            });
+            Tween.get(particle)
+                .to({
+                    y: origY
+                }, 850, Ease.backOut);
+            _this.layers.particles.addChild(particle);
+            if (typeof fn === 'function') {
+                fn(particle);
+            }
+        });
+    }
+};
+
 Client.prototype.showDamage = function(unit, damage) {
     var _this = this;
     var spacing = 0;
@@ -4299,20 +4379,20 @@ Client.prototype.showDamage = function(unit, damage) {
             });
             _this.layers.terrain.addChild(sprite);
             Tween.get(sprite)
-                .wait(i * 80)
-                .to({
-                    x: posX,
-                    y: posY - 20,
-                    alpha: 1
-                }, 400, Ease.backOut)
-                .wait(2000)
-                .to({
-                    y: posY + 20,
-                    alpha: 0
-                }, 500, Ease.quartIn)
-                .call(function() {
-                    sprite.parent.removeChild(sprite);
-                });
+            .wait(i * 80)
+            .to({
+                x: posX,
+                y: posY - 20,
+                alpha: 1
+            }, 400, Ease.backOut)
+            .wait(2000)
+            .to({
+                y: posY + 20,
+                alpha: 0
+            }, 500, Ease.quartIn)
+            .call(function() {
+                sprite.parent.removeChild(sprite);
+            });
         });
     });
 };
@@ -4461,6 +4541,16 @@ Client.prototype.getSpriteSheet = function(name, callback) {
     callback(null, spriteSheet);
 };
 
+Client.prototype.getTileSpriteName = function(tile) {
+    var tileName = 'hex_bg_inset';
+    if (_.has(tile, 'attack')) {
+        tileName = 'hex_atkup';
+    } else if (_.has(tile, 'defense')) {
+        tileName = 'hex_defup';
+    }
+    return tileName;
+};
+
 Client.prototype.setTiles = function(tiles, callback) {
     var _this = this, cacheContainer;
     var terrainWidth = HexUtil.WIDTH * settings.columns + (HexUtil.WIDTH * 0.5);
@@ -4469,10 +4559,19 @@ Client.prototype.setTiles = function(tiles, callback) {
         cacheContainer.parent.removeChild(cacheContainer);
     }
     cacheContainer = new createjs.Container();
-    tiles.each(function(tile, i) {
+    tiles.each(function(tile) {
+        var tileName = _this.getTileSpriteName(tile);
+        var t;
         if (!tile.wall) {
-            _this.createSprite('hex_bg_inset', function(err, tileSprite) {
+            _this.createSprite(tileName, function(err, tileSprite) {
                 HexUtil.position(tileSprite, tile);
+                if (_this.debug) {
+                    t = new createjs.Text(tile.pos(), "10px Arial", "rgba(255, 255, 255, 0.5)");
+                    t.textBaseLine = "ideographic";
+                    t.textAlign = 'center';
+                    HexUtil.position(t, tile, true);
+                    cacheContainer.addChild(t);
+                }
                 cacheContainer.addChild(tileSprite);
             });
         }
@@ -4485,6 +4584,7 @@ Client.prototype.setTiles = function(tiles, callback) {
     this.layers.terrain.addChild(cacheContainer);
     this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
     this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
+    this.layers.terrain.addChild(this.layers.particles); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     if (typeof callback === 'function') {
@@ -4516,8 +4616,10 @@ Client.prototype.initializeLayers = function(callback) {
     this.layers.terrain = new createjs.Container();
     this.layers.tiles = new createjs.Container();
     this.layers.units = new createjs.Container();
+    this.layers.particles = new createjs.Container();
     this.layers.terrain.addChild(this.layers.tiles);
     this.layers.terrain.addChild(this.layers.units);
+    this.layers.terrain.addChild(this.layers.particles);
     this.stage.addChild(this.layers.terrain);
     callback(null);
 };
@@ -4547,7 +4649,7 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":20,"../game/game":32,"./settings":4,"./unit-classes/marine":25,"./unit-classes/vanguard":27,"./frame-data-offset":13,"../game/wait":14,"underscore":35}],34:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+},{"events":2,"./Preloader":12,"./hexutil":11,"./frames/frames":20,"../game/game":33,"./settings":4,"./unit-classes/marine":26,"./unit-classes/vanguard":28,"./frame-data-offset":13,"../game/wait":14,"underscore":36}],35:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
 var _ = require('underscore');
 var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
@@ -4703,8 +4805,20 @@ function serverEmulator(socket) {
             return this.wait(time, function() {
                 routes.emit('unit:create', {
                     c: 'create',
-                    id: 'marine',
-                    x: 6,
+                    id: 'vanguard',
+                    x: 2,
+                    y: 6
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 1,
+                    y: 1
+                });
+                routes.emit('unit:create', {
+                    c: 'create',
+                    id: 'vanguard',
+                    x: 2,
                     y: 3
                 });
                 routes.emit('unit:create', {
@@ -4712,12 +4826,6 @@ function serverEmulator(socket) {
                     id: 'vanguard',
                     x: 3,
                     y: 3
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 2,
-                    y: 4
                 });
                 //routes.emit('unit:create', {
                 //    c: 'create',
@@ -4804,4 +4912,4 @@ function serverEmulator(socket) {
 
 module.exports = serverEmulator;
 
-},{"events":2,"../game/game":32,"../game/unit-types":8,"underscore":35}]},{},[31]);
+},{"events":2,"../game/game":33,"../game/unit-types":9,"underscore":36}]},{},[32]);

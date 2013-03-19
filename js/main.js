@@ -44,6 +44,7 @@ window.addEventListener('load', function() {
     Game.create(function(err, game) {
         game.loadMap(baseLevel);
         Client.create(game, function(err, client) {
+            //client.debug = true;
             client.preloader.load(assetManifest, function(err) {
                 client.setScene(document.querySelector('canvas#game'), function(err) {
                     clientEvents(game, client, socket);
