@@ -267,8 +267,8 @@ EventEmitter.prototype.listeners = function(type) {
     //{ x: 4, y: 0, wall: 1 },
     //{ x: 4, y: 1, wall: 1 },
     { x: 3, y: 3, defense: 50, walls: [[4,3]]},
-    { x: 1, y: 5, attack: 2150},
-    { x: 1, y: 4, defense: 2150},
+    { x: 3, y: 4, attack: 150},
+    { x: 1, y: 4, defense: 150},
     //{ x: 4, y: 2, wall: 1, type: 'wall0' },
     //{ x: 4, y: 3, wall: 1 },
     //{ x: 4, y: 4, wall: 1 },
@@ -286,30 +286,6 @@ module.exports = base;
 },{}],6:[function(require,module,exports){var logs = require('../logs');
 
 function clientEvents(game, client, socket) {
-    var log = logs('#unit-info', true);
-
-    client.on('unit:info', function(entity) {
-        var stats = "";
-        var commands = '';
-        entity.stats.each(function(stat) {
-            stats += "- " + stat.name + ":" + stat.val() + "/" + stat.max + "<br>";
-        });
-
-        entity.commands.each(function(command) {
-            commands += '- ' + command.id + ': ' + command.damage + ' damage' + '<br>';
-        });
-
-        log(
-            'unit type: ' + entity.type, '<br>',
-            '--------------------------------', '<br>',
-            'stats', '<br>',
-            stats,
-            '--------------------------------', '<br>',
-            'commands', '<br>',
-            commands
-        );
-    });
-
     client.on('input:move', function(data) {
         socket.emit('unit:turn', {
             c: 'move',
@@ -318,7 +294,6 @@ function clientEvents(game, client, socket) {
             y: data.tile.y
         });
     });
-
     client.on('input:act', function(data) {
         socket.emit('unit:turn', {
             c: 'act',
@@ -327,6 +302,11 @@ function clientEvents(game, client, socket) {
             command: data.command.id,
             x: data.tile.x,
             y: data.tile.y
+        });
+    });
+    client.on('input:skip', function() {
+        socket.emit('unit:turn', {
+            c: 'skip'
         });
     });
 }
@@ -405,8 +385,11 @@ function gameRoutes(socket, game) {
         });
     });
 
+    socket.on('warning', function(o) {
+        console.log(o);
+    });
+
     socket.on('unit/turn', function(data) {
-        //console.log('turn', data);
         routes.emit('unit:' + data.c, data);
     });
 }
@@ -507,31 +490,7 @@ Tile.create = function() {
 };
 module.exports = Tile;
 
-},{}],11:[function(require,module,exports){var HexUtil = {
-    WIDTH: 81,
-    HEIGHT: 60,
-    position: function(hex, tile, center) {
-        var coord = this.coord(tile, center);
-        hex.regX = this.WIDTH * 0.5;
-        hex.regY = this.HEIGHT * 0.5;
-        hex.x = coord.x + hex.regX;
-        hex.y = coord.y + hex.regY;
-        return coord;
-    },
-    coord: function(tile, center) {
-        if (tile === undefined) {
-            return null;
-        }
-        return {
-            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
-            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
-        };
-    }
-};
-
-module.exports = HexUtil;
-
-},{}],12:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
+},{}],11:[function(require,module,exports){(function(){var EventEmitter = require('events').EventEmitter;
 /*global createjs*/
 var Preloader = function() {
     this.manifest = [];
@@ -560,13 +519,41 @@ Preloader.prototype.getResource = function(idOrURL) {
 module.exports = Preloader;
 
 })()
-},{"events":2}],13:[function(require,module,exports){module.exports = {
+},{"events":2}],12:[function(require,module,exports){var HexUtil = {
+    WIDTH: 81,
+    HEIGHT: 60,
+    position: function(hex, tile, center) {
+        var coord = this.coord(tile, center);
+        hex.regX = this.WIDTH * 0.5;
+        hex.regY = this.HEIGHT * 0.5;
+        hex.x = coord.x + hex.regX;
+        hex.y = coord.y + hex.regY;
+        return coord;
+    },
+    coord: function(tile, center) {
+        if (tile === undefined) {
+            return null;
+        }
+        return {
+            x: tile.x * this.WIDTH+ (tile.y % 2 ? this.WIDTH * 0.5 : 0) + (center ? this.WIDTH * 0.5 : 0),
+            y: tile.y * (this.HEIGHT - this.HEIGHT * 0.25) + (center ? this.HEIGHT * 0.5 : 0)
+        };
+    }
+};
+
+module.exports = HexUtil;
+
+},{}],13:[function(require,module,exports){module.exports = {
     'wall0': {
         regY: 25,
     },
     'cover0-a': {
         regX: -38,
         regY: 8
+    },
+    'show-unit-info': {
+        regX: 12,
+        regY: 20
     }
 };
 
@@ -576,6 +563,14 @@ module.exports = Preloader;
 
 },{}],9:[function(require,module,exports){module.exports = {
     vanguard: {
+        data: {
+            name: 'Lemurian Vanguard',
+            role: 'Heavy/Defense',
+            description: 'The Vanguard can best defend the frontline and' +
+                ' hit multiple enemies. Effective against groups. ' +
+                'Moves slowly and has limited firing range.'
+                
+        },
         stats: {
             range: 2,
             defense: 50,
@@ -584,14 +579,21 @@ module.exports = Preloader;
         commands: {
             dualshot: {
                 damage: 300,
-                range: 3,
+                range: 1,
                 cooldown: 0,
-                splash: 5
+                splash: 2
             }
         }
     },
     marine: {
         type: 'marine',
+        data: {
+            name: 'Lemurian Marine',
+            role: 'Assault',
+            description: 'The Lemurian marine unit is perfect for ' +
+                'attacking power nodes and basic infantry units. ' +
+                'Has average life. Ineffective against heavy units.'
+        },
         stats: {
             range: 2,
             splash: 1
@@ -894,13 +896,20 @@ GameEntity.prototype.state = null;
 
 GameEntity.prototype.initialize = function(id) {
     this.id = id;
+    this.data = {};
     this.stats = new Stats();
+    // hit points
     this.stats.add('health', 800, 800);
-    this.stats.add('damage', 100, 100);
+    // armor points
     this.stats.add('defense', 0);
+    // range
     this.stats.add('range', 1, 1);
-    this.stats.add('turnspeed', 0, 100);
-    this.stats.add('turn', 0, 100);
+    // how fast their turn gauge fill ups
+    this.stats.add('turnspeed', 1);
+    // turn points
+    this.stats.add('turn', 0, 10);
+    // actions
+    this.stats.add('actions', 0, 5);
     this.commands = new Commands();
     this.tile = null;
 };
@@ -912,6 +921,9 @@ GameEntity.prototype.set = function(attributes) {
         }
         if (attributes.hasOwnProperty('stats')) {
             this.stats.set(attributes.stats);
+        }
+        if (attributes.hasOwnProperty('data')) {
+            this.data = attributes.data;
         }
     }
 };
@@ -983,6 +995,7 @@ GameEntity.prototype.act = function(target, command, index) {
     if (health - damage <= 0) {
         status = 'death';
     }
+
     this.emit('act', {
         target: target,
         command: command
@@ -1003,15 +1016,7 @@ GameEntity.create = function(id, fn) {
 
 module.exports = GameEntity;
 
-},{"events":2,"./stats/stats":18,"./commands/commands":19}],20:[function(require,module,exports){module.exports = {
-    marine: require('./marine'),
-    vanguard: require('./vanguard'),
-    common: require('./common'),
-    particles: require('./particles'),
-    foreground: require('./foreground')
-};
-
-},{"./marine":21,"./vanguard":22,"./common":23,"./particles":24,"./foreground":25}],26:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
+},{"events":2,"./stats/stats":18,"./commands/commands":19}],20:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
 var frameData = require('../frames/marine');
 
 var spriteSheet = new createjs.SpriteSheet(frameData);
@@ -1098,7 +1103,15 @@ Marine.prototype.die = function() {
 
 module.exports = Marine;
 
-},{"../unit-sprite":27,"../frames/marine":21}],28:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
+},{"../unit-sprite":21,"../frames/marine":22}],23:[function(require,module,exports){module.exports = {
+    marine: require('./marine'),
+    vanguard: require('./vanguard'),
+    common: require('./common'),
+    particles: require('./particles'),
+    foreground: require('./foreground')
+};
+
+},{"./marine":22,"./vanguard":24,"./common":25,"./particles":26,"./foreground":27}],28:[function(require,module,exports){var UnitSprite = require('../unit-sprite');
 var frameData = require('../frames/vanguard');
 
 var spriteSheet = new createjs.SpriteSheet(frameData);
@@ -1173,7 +1186,99 @@ Vanguard.prototype.die = function() {
 
 module.exports = Vanguard;
 
-},{"../unit-sprite":27,"../frames/vanguard":22}],21:[function(require,module,exports){module.exports = {
+},{"../unit-sprite":21,"../frames/vanguard":24}],21:[function(require,module,exports){(function(){/*global createjs */
+
+var EventEmitter = require('events').EventEmitter;
+
+var UnitSprite = function(entity) {
+};
+
+UnitSprite.prototype = new EventEmitter();
+
+UnitSprite.prototype.entity = null;
+UnitSprite.prototype.walkDuration = null;
+UnitSprite.prototype.container = null;
+UnitSprite.prototype.endAnimations = null;
+UnitSprite.prototype.lastTile = null;
+UnitSprite.prototype.infoButton = null;
+
+UnitSprite.prototype.initialize = function(entity) {
+    this.walkDuration = 1000;
+    this.container = new createjs.Container();
+    this.endAnimations = new EventEmitter();
+};
+
+UnitSprite.prototype.face = function(direction) {
+    var scale;
+    switch (direction) {
+        case 'left':
+            this.container.scaleX = scale = -1;
+        break;
+        case 'right':
+            this.container.scaleX = scale = 1;
+        break;
+        default:
+            throw 'unrecognized value `' + direction + '` for parameter direction. Possible values: left|right';
+    }
+    if (this.infoButton) {
+        this.infoButton.scaleX = scale;
+    }
+    this.direction = scale;
+};
+
+UnitSprite.prototype.moveStart = function() {
+    this.emit('move:start');
+};
+
+UnitSprite.prototype.moveEnd = function() {
+    this.emit('move:end');
+};
+
+UnitSprite.prototype.move = function(tile) {
+    this.lastTile = tile;
+    this.emit('move', tile);
+};
+
+UnitSprite.prototype.actEnd = function() {
+    this.emit('act:end');
+};
+
+UnitSprite.prototype.actStart = function() {
+    this.emit('act:start');
+};
+
+UnitSprite.prototype.act = function() {
+    this.emit('act');
+};
+
+UnitSprite.prototype.damageStart = function() {
+    this.emit('damage:start');
+};
+
+/**
+ * When the sprite resumes to its normal pose after receving damage
+ */
+UnitSprite.prototype.damageEnd = function() {
+    this.emit('damage:end');
+};
+
+/**
+ * Event where the sprite receives a damage and performs a hit animation
+ */
+UnitSprite.prototype.damage = function() {
+    this.emit('damage');
+};
+
+UnitSprite.prototype.die = function() {
+    this.emit('die');
+};
+
+
+
+module.exports = UnitSprite;
+
+})()
+},{"events":2}],22:[function(require,module,exports){module.exports = {
     "frames": [
         [1528, 0, 52, 78, 0, 18, 68],
         [1015, 0, 52, 78, 0, 18, 68],
@@ -1303,7 +1408,7 @@ module.exports = Vanguard;
     "images": ["media/marine.png"]
 };
 
-},{}],22:[function(require,module,exports){module.exports = {
+},{}],24:[function(require,module,exports){module.exports = {
     "frames": [
         [68, 313, 60, 94, 0, 33, 76],
         [1541, 219, 60, 94, 0, 33, 76],
@@ -1524,31 +1629,32 @@ module.exports = Vanguard;
     "images": ["media/vanguard.png"]
 };
 
-},{}],23:[function(require,module,exports){module.exports = {
+},{}],25:[function(require,module,exports){module.exports = {
 "images": ["media/common.png"],
 "frames": [
 
     [85, 2, 98, 65], 
-    [435, 2, 81, 60], 
-    [2, 2, 81, 72], 
     [434, 64, 81, 60], 
+    [2, 2, 81, 72], 
+    [435, 2, 81, 60], 
     [352, 2, 81, 60], 
     [351, 64, 81, 60], 
     [269, 2, 81, 60], 
     [268, 64, 81, 60], 
     [185, 64, 81, 60], 
-    [2, 116, 66, 7], 
-    [2, 103, 68, 11], 
-    [94, 95, 21, 24], 
-    [139, 95, 15, 24], 
-    [94, 69, 21, 24], 
-    [71, 76, 21, 24], 
-    [48, 76, 21, 24], 
-    [2, 76, 21, 25], 
-    [139, 69, 20, 24], 
-    [117, 95, 20, 24], 
-    [25, 76, 21, 24], 
-    [117, 69, 20, 24], 
+    [2, 119, 66, 7], 
+    [2, 106, 68, 11], 
+    [101, 69, 21, 24], 
+    [146, 69, 15, 24], 
+    [95, 102, 21, 24], 
+    [78, 76, 21, 24], 
+    [72, 102, 21, 24], 
+    [32, 76, 21, 25], 
+    [140, 95, 20, 24], 
+    [124, 69, 20, 24], 
+    [55, 76, 21, 24], 
+    [118, 95, 20, 24], 
+    [2, 76, 28, 28], 
     [185, 2, 82, 60]
 ],
 "animations": {
@@ -1574,15 +1680,17 @@ module.exports = Vanguard;
         "n-7":[18], 
         "n-8":[19], 
         "n-9":[20], 
-        "unit-shadow":[21]
+        "show-unit-info":[21], 
+        "unit-shadow":[22]
 },
 "texturepacker": [
-        "SmartUpdateHash: $TexturePacker:SmartUpdate:3da8970596327701dbccfb6d14db0024$",
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:23b0ccb5d1e495d22b18f16ef7db7582$",
         "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
 ]
 }
 ;
-},{}],24:[function(require,module,exports){module.exports = {
+
+},{}],26:[function(require,module,exports){module.exports = {
 "images": ["media/particles.png"],
 "frames": [
 
@@ -1600,8 +1708,7 @@ module.exports = Vanguard;
 ]
 }
 ;
-
-},{}],25:[function(require,module,exports){module.exports = {
+},{}],27:[function(require,module,exports){module.exports = {
 "images": ["media/foreground.png"],
 "frames": [
 
@@ -1621,96 +1728,7 @@ module.exports = Vanguard;
 ]
 }
 ;
-},{}],27:[function(require,module,exports){(function(){/*global createjs */
-
-var EventEmitter = require('events').EventEmitter;
-
-var UnitSprite = function(entity) {
-};
-
-UnitSprite.prototype = new EventEmitter();
-
-UnitSprite.prototype.entity = null;
-UnitSprite.prototype.walkDuration = null;
-UnitSprite.prototype.container = null;
-UnitSprite.prototype.endAnimations = null;
-UnitSprite.prototype.lastTile = null;
-
-UnitSprite.prototype.initialize = function(entity) {
-    this.walkDuration = 1000;
-    this.container = new createjs.Container();
-    this.endAnimations = new EventEmitter();
-};
-
-UnitSprite.prototype.face = function(direction) {
-    var scale;
-    switch (direction) {
-        case 'left':
-            this.container.scaleX = scale = -1;
-            break;
-        case 'right':
-            this.container.scaleX = scale = 1;
-            break;
-        default:
-            throw 'unrecognized value `' + direction + '` for parameter direction. Possible values: left|right';
-            break;
-    }
-    this.direction = scale;
-};
-
-UnitSprite.prototype.moveStart = function() {
-    this.emit('move:start');
-};
-
-UnitSprite.prototype.moveEnd = function() {
-    this.emit('move:end');
-};
-
-UnitSprite.prototype.move = function(tile) {
-    this.lastTile = tile;
-    this.emit('move', tile);
-};
-
-UnitSprite.prototype.actEnd = function() {
-    this.emit('act:end');
-};
-
-UnitSprite.prototype.actStart = function() {
-    this.emit('act:start');
-};
-
-UnitSprite.prototype.act = function() {
-    this.emit('act');
-};
-
-UnitSprite.prototype.damageStart = function() {
-    this.emit('damage:start');
-};
-
-/**
- * When the sprite resumes to its normal pose after receving damage
- */
-UnitSprite.prototype.damageEnd = function() {
-    this.emit('damage:end');
-};
-
-/**
- * Event where the sprite receives a damage and performs a hit animation
- */
-UnitSprite.prototype.damage = function() {
-    this.emit('damage');
-};
-
-UnitSprite.prototype.die = function() {
-    this.emit('die');
-};
-
-
-
-module.exports = UnitSprite;
-
-})()
-},{"events":2}],16:[function(require,module,exports){var Tile = require('./tile');
+},{}],16:[function(require,module,exports){var Tile = require('./tile');
 
 var Tiles = function() {
     this.initialize.apply(this, arguments);
@@ -2045,7 +2063,7 @@ Commands.prototype.add = function(name, options) {
 module.exports = Commands;
 
 },{"./command":30,"../collection":31}],29:[function(require,module,exports){var Stat = function() {
-    this.initialize.apply(this, arguments);
+	this.initialize.apply(this, arguments);
 };
 
 /**
@@ -2070,9 +2088,9 @@ Stat.prototype.max = null;
  * @param {number} value
  */
 Stat.prototype.initialize = function(name, value, max) {
-    this.name = name;
-    this.value = typeof value === 'number' ? value : 0;
-    this.max = typeof max === 'number' ? max : this.value;
+	this.name = name;
+	this.value = typeof value === 'number' ? value : 0;
+	this.max = typeof max === 'number' ? max : this.value;
 };
 
 /**
@@ -2081,7 +2099,7 @@ Stat.prototype.initialize = function(name, value, max) {
  * @param {number} val
  */
 Stat.prototype.setBase = function(val) {
-    this.value = this.max = val;
+	this.value = this.max = val;
 };
 
 /**
@@ -2090,7 +2108,7 @@ Stat.prototype.setBase = function(val) {
  * @param {number} val
  */
 Stat.prototype.setMax = function(val) {
-    this.max = val;
+	this.max = val;
 };
 
 
@@ -2101,7 +2119,7 @@ Stat.prototype.setMax = function(val) {
  * @return {number}
  */
 Stat.prototype.setValue = function(val) {
-    return this.value = Math.max(Math.min(val, this.max), 0);
+	return this.value = Math.max(Math.min(val, this.max), 0);
 };
 
 /**
@@ -2109,7 +2127,7 @@ Stat.prototype.setValue = function(val) {
  * @method empty
  */
 Stat.prototype.empty = function() {
-    this.value = 0;
+	this.value = 0;
 };
 
 /**
@@ -2117,7 +2135,10 @@ Stat.prototype.empty = function() {
  * @param {number} val
  */
 Stat.prototype.reduce = function(val) {
-    this.setValue(this.value - val);
+	if (val === null || val === undefined) {
+		val = 1;
+	}
+	this.setValue(this.value - val);
 };
 
 /**
@@ -2126,10 +2147,10 @@ Stat.prototype.reduce = function(val) {
  * @param [val=1]
  */
 Stat.prototype.increase = function(val) {
-    if (typeof val !== 'number') {
-        val = 1;
-    }
-    this.setValue(this.value + val);
+	if (typeof val !== 'number') {
+		val = 1;
+	}
+	this.setValue(this.value + val);
 };
 
 /**
@@ -2138,7 +2159,7 @@ Stat.prototype.increase = function(val) {
  * @param val
  */
 Stat.prototype.reset = function(val) {
-    this.value = this.max;
+	this.value = this.max;
 };
 
 /**
@@ -2147,11 +2168,11 @@ Stat.prototype.reset = function(val) {
  * @return {Number}
  */
 Stat.prototype.ratio = function() {
-    return this.value / this.max;
+	return this.value / this.max;
 };
 
 Stat.prototype.val = function() {
-    return this.value;
+	return this.value;
 };
 
 module.exports = Stat;
@@ -2199,6 +2220,7 @@ Command.prototype.initialize = function(id, options) {
     this.damage = 0;
     this.range = 0;
     this.splash = 0;
+    this.cost = 1;
     if (typeof options === 'object') {
         for(var key in options) {
             if (options.hasOwnProperty(key)) {
@@ -2289,6 +2311,7 @@ var Game = require('./game/game');
 var Client = require('./client/client');
 var assetManifest = require('./client/asset-manifest.js');
 var settings = require('./client/settings');
+var UIKeyBindings = require('./client/ui-keybindings');
 var serverEmulator = require('./routes/game-server');
 var clientEvents = require('./routes/client-routes');
 var gameRoutes = require('./routes/game-routes');
@@ -2296,6 +2319,7 @@ var socket = window.socket || new EventEmitter();
 
 /** level **/
 var baseLevel = require('./levels/base');
+
 
 function preventDraggingiOS() {
     document.body.addEventListener('touchmove', function (ev) { 
@@ -2316,6 +2340,9 @@ function preventContextMenu() {
     });
 }
 
+
+preventDraggingiOS();
+preventContextMenu();
 window.addEventListener('load', function() {
     Game.create(function(err, game) {
         game.loadMap(baseLevel);
@@ -2325,10 +2352,9 @@ window.addEventListener('load', function() {
                 client.setScene(document.querySelector('canvas#game'), function(err) {
                     clientEvents(game, client, socket);
                     gameRoutes(socket, game);
-                    preventDraggingiOS();
-                    preventContextMenu();
+                    UIKeyBindings(game, client);
                     if (!window.socket) {
-                        serverEmulator(socket);
+                        serverEmulator(socket, baseLevel);
                     }
                 });
 
@@ -2339,7 +2365,7 @@ window.addEventListener('load', function() {
     });
 });
 
-},{"events":2,"./client/asset-manifest.js":3,"./game/game":33,"./client/client":34,"./client/settings":4,"./routes/game-server":35,"./routes/client-routes":6,"./routes/game-routes":8,"./levels/base":5,"underscore":36}],36:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
+},{"events":2,"./client/asset-manifest.js":3,"./game/game":33,"./client/client":34,"./client/settings":4,"./client/ui-keybindings":35,"./routes/game-server":36,"./routes/client-routes":6,"./routes/game-routes":8,"./levels/base":5,"underscore":37}],37:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
 //     http://underscorejs.org
 //     (c) 2009-2013 Jeremy Ashkenas, DocumentCloud Inc.
 //     Underscore may be freely distributed under the MIT license.
@@ -3698,7 +3724,6 @@ Game.prototype.actEntity = function(entity, tile, command, target) {
                 id: target.id,
                 damage: result.damage
             });
-
             if (result.status) {
                 results.push({
                     id: target.id,
@@ -3723,6 +3748,7 @@ Game.prototype.actEntity = function(entity, tile, command, target) {
 Game.prototype.setTurn = function(entity) {
     if (this.entities.indexOf(entity) > -1) {
         this.currentTurn = entity;
+        entity.stats.get('actions').reset();
         entity.enable();
         this.emit('unit:enable', entity);
     }
@@ -3732,13 +3758,48 @@ Game.prototype.endTurn = function() {
     var entity = this.currentTurn;
     if (entity) {
         entity.disable();
+        entity.stats.get('turn').empty();
         this.emit('unit:disable', entity);
     }
     this.currentTurn = null;
 };
 
 Game.prototype.nextTurn = function() {
+    var _this = this;
+    var interval;
+    var calculate = function() {
+        var entity, turn, turnspeed, i, l;
+        console.log('calculating');
+        for (i = 0, l = _this.entities.length; i < l; i++){
+            entity = _this.entities[i];
+            if (entity.stats.get('health').val() === 0) {
+                continue;
+            }
+            turn = entity.stats.get('turn');
+            turn.increase(entity.stats.get('turnspeed').val());
+            if (turn.val() == turn.max) {
+                _this.setTurn(entity);
+                clearInterval(interval);
+                break;
+            }
+        };
+    };
     this.endTurn();
+    interval = setInterval(calculate, 10);
+};
+
+Game.prototype.getTurnID = function(fn) {
+    if (typeof fn === 'function') {
+        fn(this.currentTurn);
+    }
+    return this.currentTurn;
+};
+
+Game.prototype.checkCurrentTurn = function() {
+    if (this.currentTurn.stats.get('actions').val() === 0){
+        this.endTurn();
+        this.nextTurn();
+    }
 };
 
 Game.create = function(callback) {
@@ -3752,7 +3813,7 @@ Game.create = function(callback) {
 
 module.exports = Game;
 
-},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":36}],34:[function(require,module,exports){(function(){/*global createjs */
+},{"events":2,"./tiles/hextiles":15,"./entity":17,"./tiles/tile":10,"underscore":37}],34:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -3781,6 +3842,7 @@ Client.prototype.initialize = function(game) {
 
     this.game = game;
     this.units = {};
+    this._unitList = [];
     this.preloader = new Preloader();
 
     turnRoutes.on('result:death', function(unit) {
@@ -3884,6 +3946,8 @@ Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
     this.layers = {};
     this.stage = new createjs.Stage(canvas);
+    this.width = canvas.width;
+    this.height = canvas.height;
     createjs.Touch.enable(this.stage);
     _this.resource('background', function(err, backgroundImage){ 
         _this.setSpriteSheets(function() {
@@ -3913,21 +3977,29 @@ Client.prototype.setSpriteSheets = function(callback) {
     callback(null, this.spriteSheets);
 };
 
+Client.prototype.applySpriteOffset = function(sprite, name) {
+    var key;
+    var offset = frameDataOffset[name];
+    if (offset) {
+        for(key in offset) {
+            if (offset.hasOwnProperty(key)) {
+                sprite[key] = offset[key];
+            }
+        }
+    }
+};
+
 Client.prototype.createFGElement = function(name, tile, callback) {
-    var animation, spriteSheet, coord, regX, regY, offset, _this = this;
+    var animation, spriteSheet, coord, regX, regY, _this = this;
     spriteSheet = this.spriteSheets.foreground;
     if (spriteSheet.getAnimation(name)) {
         animation = new createjs.BitmapAnimation(spriteSheet);
         animation.gotoAndStop(name);
         coord = HexUtil.coord(tile);
-        offset = frameDataOffset[tile.type];
-        regX = offset && offset.regX ? offset.regX : 0;
-        regY = offset && offset.regY ? offset.regY : 0;
+        this.applySpriteOffset(animation, tile.type);
         animation.set({
             x: coord.x,
-            y: coord.y,
-            regX: regX,
-            regY: regY
+            y: coord.y
         });
         _this.setSpriteDepth(animation, tile.z);
         if (typeof callback === 'function') {
@@ -3940,7 +4012,11 @@ Client.prototype.createFGElement = function(name, tile, callback) {
 Client.prototype.createSprite = function(name, callback) {
     var animation = new createjs.BitmapAnimation(this.spriteSheets.common);
     animation.gotoAndStop(name);
-    callback(null, animation);
+    this.applySpriteOffset(animation, name);
+    if (typeof callback === 'function') {
+        callback(null, animation);
+    }
+    return animation;
 };
 
 Client.prototype.createParticle = function(name, fn) {
@@ -3970,6 +4046,16 @@ Client.prototype.createUnit = function(entity, callback) {
     if (UnitSpriteClass) {
         unit = new UnitSpriteClass(entity);
         unit.id = entity.id;
+        unit.infoButton = this.createSprite('show-unit-info');
+        unit.infoButton.addEventListener('click', function() {
+            _this.showUnitInfo(entity);
+            Tween.get(unit.infoButton)
+                .to({ scaleY: 1.5 }, 200, Ease.quartIn)
+                .to({ scaleY: 1 }, 300, Ease.quartOut)
+                ;
+        });
+        unit.infoButton.visible = false;
+        unit.container.addChild(unit.infoButton);
         _this.addUnit(entity.id, unit, function() {
             _this.unitEvents(unit, entity);
             _this.spawnUnit(unit, entity.tile);
@@ -4004,7 +4090,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                     scaleY: 1,
                     alpha: 1
                 }, 450, Ease.backInOut);
-            sprite.addEventListener('click', function() {
+            sprite.addEventListener('mousedown', function() {
                 unit.emit('tile:select');
             });
             unit.container.addChildAt(sprite, 0);
@@ -4148,7 +4234,7 @@ Client.prototype.unitEvents = function(unit, entity) {
 
             // show moveable tiles
             _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
-                tileSprite.addEventListener('click', function() {
+                tileSprite.addEventListener('mousedown', function() {
                     var tiles, pathSpriteObject, lastTile;
                     var path = game.tiles.findPath(entity.tile, tile);
                     tiles = [entity.tile].concat(path);
@@ -4156,7 +4242,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                     unit.emit('tiles:hide:path');
                     pathSpriteObject = _this.generateTilePath(tiles);
                     lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
-                    lastTile.addEventListener('click', function() {
+                    lastTile.addEventListener('mousedown', function() {
                         wait(100, function() {
                             _this.emit('input:move', {
                                 tile: tile,
@@ -4216,7 +4302,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                         }
                     }
                     unit.tileSpritesTarget.push(tileSprite);
-                    tileSprite.addEventListener('click', function() {
+                    tileSprite.addEventListener('mousedown', function() {
                         var tiles, tileSprites;
                         tiles = [tile];
                         tileSprites = [];
@@ -4228,7 +4314,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                         _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
                             targetUnit.container.addChildAt(tileSprite, 1);
                             tileSprites.push(tileSprite);
-                            tileSprite.addEventListener('click', function() { 
+                            tileSprite.addEventListener('mousedown', function() { 
                                 /** delay to give some breathing space to the UI **/
                                 wait(100, function() {
                                     _this.emit('input:act', {
@@ -4517,6 +4603,7 @@ Client.prototype.spawnUnit = function(unit, tile, callback) {
 };
 
 Client.prototype.addUnit = function(id, unit, callback) {
+    this._unitList.push(unit);
     this.units[id] = unit;
     callback(null, unit);
 };
@@ -4641,6 +4728,56 @@ Client.prototype.pause = function() {
     createjs.Ticker.setPaused(true);
 };
 
+Client.prototype.showUnitInfo = function(entity) {
+    this.emit('input:unit:info', entity);
+};
+
+Client.prototype.showUnitOptions = function() {
+    var _this = this;
+    if (!this.layers.unitsDimmer) {
+        this.layers.unitsDimmer = new createjs.Shape();
+        this.layers.unitsDimmer.graphics
+            .beginFill('rgba(0,0,0,0.45)')
+            .drawRect(0, 0, this.width, this.height)
+            ;
+    }
+
+    Tween.get(this.layers.unitsDimmer)
+        .to({ alpha: 0 })
+        .to({ alpha: 1 }, 200)
+    ;
+
+    _.each(this._unitList, function(unit, i) {
+        unit.infoButton.visible = true;
+        _this.layers.terrain.addChild(unit.infoButton);
+        unit.infoButton.x = unit.container.x;
+        unit.infoButton.y = unit.container.y;
+        Tween.get(unit.infoButton)
+            .to({ scaleX: 0, scaleY: 0 })
+            .wait(i * 20)
+            .to({ scaleX: 1, scaleY: 1 }, 500, Ease.backInOut)
+        ;
+    });
+
+    this.layers.tiles.visible = false;
+    this.layers.units.mouseEnabled = false;
+
+    this.stage.addChildAt(this.layers.unitsDimmer, 1);
+
+};
+
+Client.prototype.hideUnitOptions = function() {
+    if (this.layers.unitsDimmer) {
+        this.layers.unitsDimmer.parent.removeChild(this.layers.unitsDimmer);
+        _.each(this._unitList, function(unit) {
+            unit.infoButton.visible = false;
+        });
+    }
+    this.layers.units.mouseEnabled = true;
+    this.layers.tiles.visible = true;
+};
+
+
 Client.create = function(game, callback) {
     var client = new Client(game);
     callback(null, client);
@@ -4649,33 +4786,124 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":12,"./hexutil":11,"./frames/frames":20,"../game/game":33,"./settings":4,"./unit-classes/marine":26,"./unit-classes/vanguard":28,"./frame-data-offset":13,"../game/wait":14,"underscore":36}],35:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":23,"../game/game":33,"./unit-classes/marine":20,"./settings":4,"./unit-classes/vanguard":28,"./frame-data-offset":13,"../game/wait":14,"underscore":37}],35:[function(require,module,exports){var _ = require('underscore');
+
+_.templateSettings = {
+  interpolate : /\{\{(.+?)\}\}/g
+};
+
+
+module.exports = function UIKeyBindings(game, client) {
+    var tplUnitInfo = _.template(document.querySelector('#tpl-unit-info').innerHTML);
+    var domUnitInfo = document.querySelector('#unit-info');
+    var domUIContainer = document.querySelector('#ui-container');
+    var domHelpButton = document.querySelector('#help-button');
+
+    function showUnitInfo(entity) {
+        if (!entity) {
+            return;
+        }
+        game.getEntity(entity.id, function(entity) {
+            var health = entity.stats.get('health');
+            var range = entity.stats.get('range');
+            var reach = entity.commands.at(0);
+            domUnitInfo.innerHTML = tplUnitInfo({
+                name: entity.data.name,
+                role: entity.data.role,
+                description: entity.data.description,
+                health: health.ratio(),
+                health_val: health.val(),
+                health_max: health.max,
+                def: entity.stats.get('defense').val(),
+                atk: entity.commands.at(0).damage
+            });
+            _.each(
+                domUnitInfo.querySelectorAll('.range-stat .range-bg'),
+                function(rangeBG, i) {
+                    if (i + 1> range.val()) {
+                        rangeBG.innerHTML = '';
+                    }
+                }
+            );
+
+            _.each(
+                domUnitInfo.querySelectorAll('.reach-stat .reach-bg'),
+                function(reachBG, i) {
+                    if (i > reach.range) {
+                        reachBG.innerHTML = '';
+                    }
+                }
+            );
+            domUnitInfo.classList.remove('hidden');
+        });
+    }
+
+    function hideUnitInfo() {
+        domUnitInfo.classList.add('hidden');
+        client.hideUnitOptions();
+    }
+
+    function toggleUnitInfo(e) {
+        if (domUnitInfo.classList.contains('hidden')) {
+            showUnitInfo();
+        } else {
+            hideUnitInfo();
+        }
+    }
+
+    var showingUnitOptions = false;
+    function showUnitOptions() {
+        if (showingUnitOptions) {
+            hideUnitInfo();
+            showingUnitOptions = false;
+        } else {
+            client.showUnitOptions();
+            showingUnitOptions = true;
+        }
+    }
+
+    domHelpButton.addEventListener('mousedown', showUnitOptions);
+    domUnitInfo.addEventListener('mousedown', showUnitOptions);
+    client.on('input:unit:info', showUnitInfo);
+    //domHelpButton.addEventListener('touchend', toggleUnitInfo);
+};
+
+},{"underscore":37}],36:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
 var _ = require('underscore');
 var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
 
 /** server simulator **/
-function serverEmulator(socket) {
+function serverEmulator(socket, level) {
     var game = Game.create();
     var routes = new EventEmitter();
+
+    game.loadMap(level);
 
     routes.on('unit:move', function unitMove(data) {
         game.getEntity(data.id, function(entity) {
             game.tiles.get(data.x, data.y, function(tile) {
                 game.moveEntity(entity, tile, data.sync);
+                entity.stats.get('actions').reduce();
+                game.checkCurrentTurn();
             });
         });
     });
 
     routes.on('unit:create', function unitCreate(data) {
-        var unitType = unitTypes[data.id];
+        // { id: 'unit1', c: 'create', type: 'marine', x: 0, y: 0}
+        var unitType = unitTypes[data.type];
         if (unitType) {
-            game.spawnEntity({
-                id: _.uniqueId('unit'),
-                type: data.id,
-                attributes: unitTypes[data.id],
-                x: data.x,
-                y: data.y
+            game.getEntity(data.id, function(entity) {
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: data.type,
+                    attributes: unitTypes[data.id],
+                    x: data.x,
+                    y: data.y
+                });
+                entity.stats.get('actions').empty();
+                game.checkCurrentTurn();
             });
         } else {
             socket.emit('warning', {
@@ -4683,7 +4911,7 @@ function serverEmulator(socket) {
                 message: 'You tried to create an unknown entity. ' +
                     'If you are trying to see loopholes, ' +
                     'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
-            })
+            });
         }
     });
 
@@ -4693,10 +4921,17 @@ function serverEmulator(socket) {
                 entity.commands.get(data.command, function(command) {
                     game.getEntity(data.target, function(target) {
                         game.actEntity(entity, tile, command, target);
+                        //entity.stats.get('actions').reduce(command.cost);
+                        entity.stats.get('actions').empty();
+                        game.checkCurrentTurn();
                     });
                 });
             });
         });
+    });
+
+    routes.on('unit:skip', function() {
+        console.log('asdasd');
     });
 
     game.on('unit:add', function(entity) {
@@ -4742,7 +4977,7 @@ function serverEmulator(socket) {
 
     game.on('unit:disable', function(entity) {
         socket.emit('unit/turn', {
-            c: 'enable',
+            c: 'disable',
             id: entity.id,
             x: entity.tile.x,
             y: entity.tile.y
@@ -4755,7 +4990,18 @@ function serverEmulator(socket) {
         var x = data.x; // x coordinate of the targetted tile
         var y = data.y; // y coordinate of the targetted tile
         var target = data.target; // id of the targetted unit
-        routes.emit('unit:' + c, data);
+        game.getTurnID(function(entity) {
+            if (entity && entity.id === id) {
+                routes.emit('unit:' + c, data);
+            } else {
+                socket.emit('warning', {
+                    error: 'Invalid Turn: ' + data.id,
+                    message: 'Y U MANUALLY SEND Packets to server? u_u ' +
+                        'If you are trying to see loopholes, ' +
+                        'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
+                });
+            }
+        });
     });
 
     function spawnUnitAtRandomRow(side, type) {
@@ -4803,29 +5049,19 @@ function serverEmulator(socket) {
 
         this.spawn = function spawn(time) {
             return this.wait(time, function() {
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'marine',
+                    attributes: unitTypes['marine'],
                     x: 2,
                     y: 6
                 });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 1,
-                    y: 1
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 2,
-                    y: 3
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'vanguard',
+                    attributes: unitTypes['vanguard'],
                     x: 3,
-                    y: 3
+                    y: 5
                 });
                 //routes.emit('unit:create', {
                 //    c: 'create',
@@ -4902,8 +5138,8 @@ function serverEmulator(socket) {
     }
 
     test().spawn(100)
-        .setTurn(100)
-        //.nextTurn(1000)
+        //.setTurn(100)
+        .nextTurn(1000)
         //.correctpos(500)
         //.move(1000)
         //.attack(500)
@@ -4912,4 +5148,4 @@ function serverEmulator(socket) {
 
 module.exports = serverEmulator;
 
-},{"events":2,"../game/game":33,"../game/unit-types":9,"underscore":36}]},{},[32]);
+},{"events":2,"../game/game":33,"../game/unit-types":9,"underscore":37}]},{},[32]);
