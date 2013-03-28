@@ -12,6 +12,7 @@ UnitSprite.prototype.walkDuration = null;
 UnitSprite.prototype.container = null;
 UnitSprite.prototype.endAnimations = null;
 UnitSprite.prototype.lastTile = null;
+UnitSprite.prototype.infoButton = null;
 
 UnitSprite.prototype.initialize = function(entity) {
     this.walkDuration = 1000;
@@ -24,13 +25,15 @@ UnitSprite.prototype.face = function(direction) {
     switch (direction) {
         case 'left':
             this.container.scaleX = scale = -1;
-            break;
+        break;
         case 'right':
             this.container.scaleX = scale = 1;
-            break;
+        break;
         default:
             throw 'unrecognized value `' + direction + '` for parameter direction. Possible values: left|right';
-            break;
+    }
+    if (this.infoButton) {
+        this.infoButton.scaleX = scale;
     }
     this.direction = scale;
 };

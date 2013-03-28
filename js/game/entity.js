@@ -16,13 +16,20 @@ GameEntity.prototype.state = null;
 
 GameEntity.prototype.initialize = function(id) {
     this.id = id;
+    this.data = {};
     this.stats = new Stats();
+    // hit points
     this.stats.add('health', 800, 800);
-    this.stats.add('damage', 100, 100);
+    // armor points
     this.stats.add('defense', 0);
+    // range
     this.stats.add('range', 1, 1);
-    this.stats.add('turnspeed', 0, 100);
-    this.stats.add('turn', 0, 100);
+    // how fast their turn gauge fill ups
+    this.stats.add('turnspeed', 1);
+    // turn points
+    this.stats.add('turn', 0, 10);
+    // actions
+    this.stats.add('actions', 0, 5);
     this.commands = new Commands();
     this.tile = null;
 };
@@ -34,6 +41,9 @@ GameEntity.prototype.set = function(attributes) {
         }
         if (attributes.hasOwnProperty('stats')) {
             this.stats.set(attributes.stats);
+        }
+        if (attributes.hasOwnProperty('data')) {
+            this.data = attributes.data;
         }
     }
 };
@@ -105,6 +115,7 @@ GameEntity.prototype.act = function(target, command, index) {
     if (health - damage <= 0) {
         status = 'death';
     }
+
     this.emit('act', {
         target: target,
         command: command

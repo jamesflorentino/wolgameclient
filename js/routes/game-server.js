@@ -4,27 +4,36 @@ var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
 
 /** server simulator **/
-function serverEmulator(socket) {
+function serverEmulator(socket, level) {
     var game = Game.create();
     var routes = new EventEmitter();
+
+    game.loadMap(level);
 
     routes.on('unit:move', function unitMove(data) {
         game.getEntity(data.id, function(entity) {
             game.tiles.get(data.x, data.y, function(tile) {
                 game.moveEntity(entity, tile, data.sync);
+                entity.stats.get('actions').reduce();
+                game.checkCurrentTurn();
             });
         });
     });
 
     routes.on('unit:create', function unitCreate(data) {
-        var unitType = unitTypes[data.id];
+        // { id: 'unit1', c: 'create', type: 'marine', x: 0, y: 0}
+        var unitType = unitTypes[data.type];
         if (unitType) {
-            game.spawnEntity({
-                id: _.uniqueId('unit'),
-                type: data.id,
-                attributes: unitTypes[data.id],
-                x: data.x,
-                y: data.y
+            game.getEntity(data.id, function(entity) {
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: data.type,
+                    attributes: unitTypes[data.id],
+                    x: data.x,
+                    y: data.y
+                });
+                entity.stats.get('actions').empty();
+                game.checkCurrentTurn();
             });
         } else {
             socket.emit('warning', {
@@ -32,7 +41,7 @@ function serverEmulator(socket) {
                 message: 'You tried to create an unknown entity. ' +
                     'If you are trying to see loopholes, ' +
                     'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
-            })
+            });
         }
     });
 
@@ -42,10 +51,17 @@ function serverEmulator(socket) {
                 entity.commands.get(data.command, function(command) {
                     game.getEntity(data.target, function(target) {
                         game.actEntity(entity, tile, command, target);
+                        //entity.stats.get('actions').reduce(command.cost);
+                        entity.stats.get('actions').empty();
+                        game.checkCurrentTurn();
                     });
                 });
             });
         });
+    });
+
+    routes.on('unit:skip', function() {
+        console.log('asdasd');
     });
 
     game.on('unit:add', function(entity) {
@@ -91,7 +107,7 @@ function serverEmulator(socket) {
 
     game.on('unit:disable', function(entity) {
         socket.emit('unit/turn', {
-            c: 'enable',
+            c: 'disable',
             id: entity.id,
             x: entity.tile.x,
             y: entity.tile.y
@@ -104,7 +120,18 @@ function serverEmulator(socket) {
         var x = data.x; // x coordinate of the targetted tile
         var y = data.y; // y coordinate of the targetted tile
         var target = data.target; // id of the targetted unit
-        routes.emit('unit:' + c, data);
+        game.getTurnID(function(entity) {
+            if (entity && entity.id === id) {
+                routes.emit('unit:' + c, data);
+            } else {
+                socket.emit('warning', {
+                    error: 'Invalid Turn: ' + data.id,
+                    message: 'Y U MANUALLY SEND Packets to server? u_u ' +
+                        'If you are trying to see loopholes, ' +
+                        'please visit http://github.com/jamesflorentino/wolgameclient for its full source code'
+                });
+            }
+        });
     });
 
     function spawnUnitAtRandomRow(side, type) {
@@ -152,29 +179,19 @@ function serverEmulator(socket) {
 
         this.spawn = function spawn(time) {
             return this.wait(time, function() {
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'marine',
+                    attributes: unitTypes['marine'],
                     x: 2,
                     y: 6
                 });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 1,
-                    y: 1
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
-                    x: 2,
-                    y: 3
-                });
-                routes.emit('unit:create', {
-                    c: 'create',
-                    id: 'vanguard',
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'vanguard',
+                    attributes: unitTypes['vanguard'],
                     x: 3,
-                    y: 3
+                    y: 5
                 });
                 //routes.emit('unit:create', {
                 //    c: 'create',
@@ -251,8 +268,8 @@ function serverEmulator(socket) {
     }
 
     test().spawn(100)
-        .setTurn(100)
-        //.nextTurn(1000)
+        //.setTurn(100)
+        .nextTurn(1000)
         //.correctpos(500)
         //.move(1000)
         //.attack(500)

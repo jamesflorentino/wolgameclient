@@ -13,6 +13,7 @@ var Game = require('./game/game');
 var Client = require('./client/client');
 var assetManifest = require('./client/asset-manifest.js');
 var settings = require('./client/settings');
+var UIKeyBindings = require('./client/ui-keybindings');
 var serverEmulator = require('./routes/game-server');
 var clientEvents = require('./routes/client-routes');
 var gameRoutes = require('./routes/game-routes');
@@ -20,6 +21,7 @@ var socket = window.socket || new EventEmitter();
 
 /** level **/
 var baseLevel = require('./levels/base');
+
 
 function preventDraggingiOS() {
     document.body.addEventListener('touchmove', function (ev) { 
@@ -40,6 +42,9 @@ function preventContextMenu() {
     });
 }
 
+
+preventDraggingiOS();
+preventContextMenu();
 window.addEventListener('load', function() {
     Game.create(function(err, game) {
         game.loadMap(baseLevel);
@@ -49,10 +54,9 @@ window.addEventListener('load', function() {
                 client.setScene(document.querySelector('canvas#game'), function(err) {
                     clientEvents(game, client, socket);
                     gameRoutes(socket, game);
-                    preventDraggingiOS();
-                    preventContextMenu();
+                    UIKeyBindings(game, client);
                     if (!window.socket) {
-                        serverEmulator(socket);
+                        serverEmulator(socket, baseLevel);
                     }
                 });
 

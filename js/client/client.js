@@ -27,6 +27,7 @@ Client.prototype.initialize = function(game) {
 
     this.game = game;
     this.units = {};
+    this._unitList = [];
     this.preloader = new Preloader();
 
     turnRoutes.on('result:death', function(unit) {
@@ -130,6 +131,8 @@ Client.prototype.setScene = function(canvas, callback) {
     var _this = this;
     this.layers = {};
     this.stage = new createjs.Stage(canvas);
+    this.width = canvas.width;
+    this.height = canvas.height;
     createjs.Touch.enable(this.stage);
     _this.resource('background', function(err, backgroundImage){ 
         _this.setSpriteSheets(function() {
@@ -159,21 +162,29 @@ Client.prototype.setSpriteSheets = function(callback) {
     callback(null, this.spriteSheets);
 };
 
+Client.prototype.applySpriteOffset = function(sprite, name) {
+    var key;
+    var offset = frameDataOffset[name];
+    if (offset) {
+        for(key in offset) {
+            if (offset.hasOwnProperty(key)) {
+                sprite[key] = offset[key];
+            }
+        }
+    }
+};
+
 Client.prototype.createFGElement = function(name, tile, callback) {
-    var animation, spriteSheet, coord, regX, regY, offset, _this = this;
+    var animation, spriteSheet, coord, regX, regY, _this = this;
     spriteSheet = this.spriteSheets.foreground;
     if (spriteSheet.getAnimation(name)) {
         animation = new createjs.BitmapAnimation(spriteSheet);
         animation.gotoAndStop(name);
         coord = HexUtil.coord(tile);
-        offset = frameDataOffset[tile.type];
-        regX = offset && offset.regX ? offset.regX : 0;
-        regY = offset && offset.regY ? offset.regY : 0;
+        this.applySpriteOffset(animation, tile.type);
         animation.set({
             x: coord.x,
-            y: coord.y,
-            regX: regX,
-            regY: regY
+            y: coord.y
         });
         _this.setSpriteDepth(animation, tile.z);
         if (typeof callback === 'function') {
@@ -186,7 +197,11 @@ Client.prototype.createFGElement = function(name, tile, callback) {
 Client.prototype.createSprite = function(name, callback) {
     var animation = new createjs.BitmapAnimation(this.spriteSheets.common);
     animation.gotoAndStop(name);
-    callback(null, animation);
+    this.applySpriteOffset(animation, name);
+    if (typeof callback === 'function') {
+        callback(null, animation);
+    }
+    return animation;
 };
 
 Client.prototype.createParticle = function(name, fn) {
@@ -216,6 +231,16 @@ Client.prototype.createUnit = function(entity, callback) {
     if (UnitSpriteClass) {
         unit = new UnitSpriteClass(entity);
         unit.id = entity.id;
+        unit.infoButton = this.createSprite('show-unit-info');
+        unit.infoButton.addEventListener('click', function() {
+            _this.showUnitInfo(entity);
+            Tween.get(unit.infoButton)
+                .to({ scaleY: 1.5 }, 200, Ease.quartIn)
+                .to({ scaleY: 1 }, 300, Ease.quartOut)
+                ;
+        });
+        unit.infoButton.visible = false;
+        unit.container.addChild(unit.infoButton);
         _this.addUnit(entity.id, unit, function() {
             _this.unitEvents(unit, entity);
             _this.spawnUnit(unit, entity.tile);
@@ -250,7 +275,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                     scaleY: 1,
                     alpha: 1
                 }, 450, Ease.backInOut);
-            sprite.addEventListener('click', function() {
+            sprite.addEventListener('mousedown', function() {
                 unit.emit('tile:select');
             });
             unit.container.addChildAt(sprite, 0);
@@ -394,7 +419,7 @@ Client.prototype.unitEvents = function(unit, entity) {
 
             // show moveable tiles
             _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
-                tileSprite.addEventListener('click', function() {
+                tileSprite.addEventListener('mousedown', function() {
                     var tiles, pathSpriteObject, lastTile;
                     var path = game.tiles.findPath(entity.tile, tile);
                     tiles = [entity.tile].concat(path);
@@ -402,7 +427,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                     unit.emit('tiles:hide:path');
                     pathSpriteObject = _this.generateTilePath(tiles);
                     lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
-                    lastTile.addEventListener('click', function() {
+                    lastTile.addEventListener('mousedown', function() {
                         wait(100, function() {
                             _this.emit('input:move', {
                                 tile: tile,
@@ -462,7 +487,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                         }
                     }
                     unit.tileSpritesTarget.push(tileSprite);
-                    tileSprite.addEventListener('click', function() {
+                    tileSprite.addEventListener('mousedown', function() {
                         var tiles, tileSprites;
                         tiles = [tile];
                         tileSprites = [];
@@ -474,7 +499,7 @@ Client.prototype.unitEvents = function(unit, entity) {
                         _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
                             targetUnit.container.addChildAt(tileSprite, 1);
                             tileSprites.push(tileSprite);
-                            tileSprite.addEventListener('click', function() { 
+                            tileSprite.addEventListener('mousedown', function() { 
                                 /** delay to give some breathing space to the UI **/
                                 wait(100, function() {
                                     _this.emit('input:act', {
@@ -763,6 +788,7 @@ Client.prototype.spawnUnit = function(unit, tile, callback) {
 };
 
 Client.prototype.addUnit = function(id, unit, callback) {
+    this._unitList.push(unit);
     this.units[id] = unit;
     callback(null, unit);
 };
@@ -886,6 +912,56 @@ Client.prototype.play = function() {
 Client.prototype.pause = function() {
     createjs.Ticker.setPaused(true);
 };
+
+Client.prototype.showUnitInfo = function(entity) {
+    this.emit('input:unit:info', entity);
+};
+
+Client.prototype.showUnitOptions = function() {
+    var _this = this;
+    if (!this.layers.unitsDimmer) {
+        this.layers.unitsDimmer = new createjs.Shape();
+        this.layers.unitsDimmer.graphics
+            .beginFill('rgba(0,0,0,0.45)')
+            .drawRect(0, 0, this.width, this.height)
+            ;
+    }
+
+    Tween.get(this.layers.unitsDimmer)
+        .to({ alpha: 0 })
+        .to({ alpha: 1 }, 200)
+    ;
+
+    _.each(this._unitList, function(unit, i) {
+        unit.infoButton.visible = true;
+        _this.layers.terrain.addChild(unit.infoButton);
+        unit.infoButton.x = unit.container.x;
+        unit.infoButton.y = unit.container.y;
+        Tween.get(unit.infoButton)
+            .to({ scaleX: 0, scaleY: 0 })
+            .wait(i * 20)
+            .to({ scaleX: 1, scaleY: 1 }, 500, Ease.backInOut)
+        ;
+    });
+
+    this.layers.tiles.visible = false;
+    this.layers.units.mouseEnabled = false;
+
+    this.stage.addChildAt(this.layers.unitsDimmer, 1);
+
+};
+
+Client.prototype.hideUnitOptions = function() {
+    if (this.layers.unitsDimmer) {
+        this.layers.unitsDimmer.parent.removeChild(this.layers.unitsDimmer);
+        _.each(this._unitList, function(unit) {
+            unit.infoButton.visible = false;
+        });
+    }
+    this.layers.units.mouseEnabled = true;
+    this.layers.tiles.visible = true;
+};
+
 
 Client.create = function(game, callback) {
     var client = new Client(game);

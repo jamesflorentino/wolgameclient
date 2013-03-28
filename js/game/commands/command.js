@@ -41,6 +41,7 @@ Command.prototype.initialize = function(id, options) {
     this.damage = 0;
     this.range = 0;
     this.splash = 0;
+    this.cost = 1;
     if (typeof options === 'object') {
         for(var key in options) {
             if (options.hasOwnProperty(key)) {

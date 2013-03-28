@@ -1,5 +1,5 @@
 var Stat = function() {
-    this.initialize.apply(this, arguments);
+	this.initialize.apply(this, arguments);
 };
 
 /**
@@ -24,9 +24,9 @@ Stat.prototype.max = null;
  * @param {number} value
  */
 Stat.prototype.initialize = function(name, value, max) {
-    this.name = name;
-    this.value = typeof value === 'number' ? value : 0;
-    this.max = typeof max === 'number' ? max : this.value;
+	this.name = name;
+	this.value = typeof value === 'number' ? value : 0;
+	this.max = typeof max === 'number' ? max : this.value;
 };
 
 /**
@@ -35,7 +35,7 @@ Stat.prototype.initialize = function(name, value, max) {
  * @param {number} val
  */
 Stat.prototype.setBase = function(val) {
-    this.value = this.max = val;
+	this.value = this.max = val;
 };
 
 /**
@@ -44,7 +44,7 @@ Stat.prototype.setBase = function(val) {
  * @param {number} val
  */
 Stat.prototype.setMax = function(val) {
-    this.max = val;
+	this.max = val;
 };
 
 
@@ -55,7 +55,7 @@ Stat.prototype.setMax = function(val) {
  * @return {number}
  */
 Stat.prototype.setValue = function(val) {
-    return this.value = Math.max(Math.min(val, this.max), 0);
+	return this.value = Math.max(Math.min(val, this.max), 0);
 };
 
 /**
@@ -63,7 +63,7 @@ Stat.prototype.setValue = function(val) {
  * @method empty
  */
 Stat.prototype.empty = function() {
-    this.value = 0;
+	this.value = 0;
 };
 
 /**
@@ -71,7 +71,10 @@ Stat.prototype.empty = function() {
  * @param {number} val
  */
 Stat.prototype.reduce = function(val) {
-    this.setValue(this.value - val);
+	if (val === null || val === undefined) {
+		val = 1;
+	}
+	this.setValue(this.value - val);
 };
 
 /**
@@ -80,10 +83,10 @@ Stat.prototype.reduce = function(val) {
  * @param [val=1]
  */
 Stat.prototype.increase = function(val) {
-    if (typeof val !== 'number') {
-        val = 1;
-    }
-    this.setValue(this.value + val);
+	if (typeof val !== 'number') {
+		val = 1;
+	}
+	this.setValue(this.value + val);
 };
 
 /**
@@ -92,7 +95,7 @@ Stat.prototype.increase = function(val) {
  * @param val
  */
 Stat.prototype.reset = function(val) {
-    this.value = this.max;
+	this.value = this.max;
 };
 
 /**
@@ -101,11 +104,11 @@ Stat.prototype.reset = function(val) {
  * @return {Number}
  */
 Stat.prototype.ratio = function() {
-    return this.value / this.max;
+	return this.value / this.max;
 };
 
 Stat.prototype.val = function() {
-    return this.value;
+	return this.value;
 };
 
 module.exports = Stat;

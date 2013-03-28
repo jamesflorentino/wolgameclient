@@ -129,7 +129,6 @@ Game.prototype.actEntity = function(entity, tile, command, target) {
                 id: target.id,
                 damage: result.damage
             });
-
             if (result.status) {
                 results.push({
                     id: target.id,
@@ -154,6 +153,7 @@ Game.prototype.actEntity = function(entity, tile, command, target) {
 Game.prototype.setTurn = function(entity) {
     if (this.entities.indexOf(entity) > -1) {
         this.currentTurn = entity;
+        entity.stats.get('actions').reset();
         entity.enable();
         this.emit('unit:enable', entity);
     }
@@ -163,13 +163,48 @@ Game.prototype.endTurn = function() {
     var entity = this.currentTurn;
     if (entity) {
         entity.disable();
+        entity.stats.get('turn').empty();
         this.emit('unit:disable', entity);
     }
     this.currentTurn = null;
 };
 
 Game.prototype.nextTurn = function() {
+    var _this = this;
+    var interval;
+    var calculate = function() {
+        var entity, turn, turnspeed, i, l;
+        console.log('calculating');
+        for (i = 0, l = _this.entities.length; i < l; i++){
+            entity = _this.entities[i];
+            if (entity.stats.get('health').val() === 0) {
+                continue;
+            }
+            turn = entity.stats.get('turn');
+            turn.increase(entity.stats.get('turnspeed').val());
+            if (turn.val() == turn.max) {
+                _this.setTurn(entity);
+                clearInterval(interval);
+                break;
+            }
+        };
+    };
     this.endTurn();
+    interval = setInterval(calculate, 10);
+};
+
+Game.prototype.getTurnID = function(fn) {
+    if (typeof fn === 'function') {
+        fn(this.currentTurn);
+    }
+    return this.currentTurn;
+};
+
+Game.prototype.checkCurrentTurn = function() {
+    if (this.currentTurn.stats.get('actions').val() === 0){
+        this.endTurn();
+        this.nextTurn();
+    }
 };
 
 Game.create = function(callback) {

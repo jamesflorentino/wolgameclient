@@ -70,8 +70,11 @@ function gameRoutes(socket, game) {
         });
     });
 
+    socket.on('warning', function(o) {
+        console.log(o);
+    });
+
     socket.on('unit/turn', function(data) {
-        //console.log('turn', data);
         routes.emit('unit:' + data.c, data);
     });
 }
