@@ -1,0 +1,26 @@
+/* ----------------------------------------------------
+   created with http://www.texturepacker.com 
+   ----------------------------------------------------
+   $TexturePacker:SmartUpdate:99721a47930feebe5eb9920a69b41e1b$
+   ----------------------------------------------------
+
+   usage: <span class="{-spritename-} sprite"></span>
+
+   replace {-spritename-} with the sprite you like to use
+
+*/
+
+.sprite {display:inline-block; overflow:hidden; background-repeat: no-repeat;background-image:url(ui.png);}
+
+.atk {width:11px; height:23px; background-position: -209px -324px}
+.def {width:15px; height:25px; background-position: -192px -305px}
+.health {width:17px; height:17px; background-position: -98px -329px}
+.health-bar {width:107px; height:10px; background-position: -50px -305px}
+.health-bar-bg {width:107px; height:10px; background-position: -50px -317px}
+.help {width:31px; height:39px; background-position: -159px -305px}
+.range {width:22px; height:17px; background-position: -74px -329px}
+.range-bg {width:22px; height:17px; background-position: -233px -305px}
+.reach {width:22px; height:17px; background-position: -50px -329px}
+.reach-bg {width:22px; height:17px; background-position: -209px -305px}
+.unit-info-avatar-bg {width:46px; height:46px; background-position: -2px -305px}
+.unit-info-bg {width:257px; height:301px; background-position: -2px -2px}

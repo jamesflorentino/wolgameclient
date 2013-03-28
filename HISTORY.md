@@ -33,3 +33,13 @@ March 12, 2013
 
 - Bind entity events to the unit sprite counterpart.
 - create a createTiles method to produce a faster way of generating hexes.
+
+March 20, 2013
+
+- Tile bonuses
+- Splash damage
+- Improved Range finding algorithm
+- Configurable levels
+- Tile Walls
+- Blocked Tile relationship (thin walls)
+- Unit Turn calculation
