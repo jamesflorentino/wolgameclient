@@ -487,36 +487,30 @@ Client.prototype.unitEvents = function(unit, entity) {
 
                 (function sortLineOfSight() {
                     var tile, start, end, h, slope;
-                    var slopes = {};
+                    var _dict = {};
+                    var list = [];
                     for(var i=0, total=targets.length; i < total; i++) {
                         tile = targets[i];
                         start = HexUtil.coord(entity.tile);
                         end = HexUtil.coord(tile);
                         // Pythagorean theorem for distance calculation
                         // used for determining line of sight.
-                        h = Math.sqrt(
+                        tile.distance = Math.sqrt(
                             Math.pow(end.x - start.x,2) +
                             Math.pow(end.y - start.y,2)
                         );
                         // use to determine the angle of the unit.
                         slope = (end.y - start.y) / (end.x - start.x);
-                        tile.slope = slope;
-                        if (slopes[slope]) {
-                            if (tile.slope < slopes[slope].slope) {
-                                slopes[slope] = tile;
-                            }
+                        if (!_dict[slope]) {
+                            _dict[slope] = tile;
+                            list.push(_dict[slope]);
                         } else {
-                            slopes[slope] = tile;
+                            if ([_dict].distance > tile.distance )  {
+                                _dict[slope] = tile;
+                            }
                         }
                     }
-
-                    targets = [];
-
-                    for(var key in slopes) {
-                        if (slopes.hasOwnProperty(key)) {
-                            targets.push(slopes[key]);
-                        }
-                    }
+                    targets = list;
                 }).call();
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
@@ -647,7 +641,6 @@ Client.prototype.unitEvents = function(unit, entity) {
         }
     });
 };
-
 
 Client.prototype.showTileBonus = function(tile, fn) {
     var _this = this;

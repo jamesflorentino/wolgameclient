@@ -3953,7 +3953,90 @@ Game.create = function(callback) {
 
 module.exports = Game;
 
-},{"events":2,"./tiles/hextiles":16,"./entity":18,"./tiles/tile":10,"underscore":40}],37:[function(require,module,exports){(function(){/*global createjs */
+},{"events":2,"./tiles/hextiles":16,"./entity":18,"./tiles/tile":10,"underscore":40}],38:[function(require,module,exports){var _ = require('underscore');
+var keymanager = require('./keymanager');
+
+_.templateSettings = {
+  interpolate : /\{\{(.+?)\}\}/g
+};
+
+
+module.exports = function UIKeyBindings(game, client) {
+    var tplUnitInfo = _.template(document.querySelector('#tpl-unit-info').innerHTML);
+    var domUnitInfo = document.querySelector('#unit-info');
+    var domUIContainer = document.querySelector('#ui-container');
+    var domHelpButton = document.querySelector('#help-button');
+
+    function showUnitInfo(entity) {
+        if (!entity) {
+            return;
+        }
+        game.getEntity(entity.id, function(entity) {
+            var health = entity.stats.get('health');
+            var range = entity.stats.get('range');
+            var reach = entity.commands.at(0);
+            domUnitInfo.innerHTML = tplUnitInfo({
+                name: entity.data.name,
+                role: entity.data.role,
+                description: entity.data.description,
+                health: health.ratio(),
+                health_val: health.val(),
+                health_max: health.max,
+                def: entity.stats.get('defense').val(),
+                atk: entity.commands.at(0).damage
+            });
+            _.each(
+                domUnitInfo.querySelectorAll('.range-stat .range-bg'),
+                function(rangeBG, i) {
+                    if (i + 1> range.val()) {
+                        rangeBG.innerHTML = '';
+                    }
+                }
+            );
+
+            _.each(
+                domUnitInfo.querySelectorAll('.reach-stat .reach-bg'),
+                function(reachBG, i) {
+                    if (i > reach.range - 1) {
+                        reachBG.innerHTML = '';
+                    }
+                }
+            );
+            domUnitInfo.classList.remove('hidden');
+        });
+    }
+
+    function hideUnitInfo() {
+        domUnitInfo.classList.add('hidden');
+        client.hideUnitOptions();
+    }
+
+    function toggleUnitInfo(e) {
+        if (domUnitInfo.classList.contains('hidden')) {
+            showUnitInfo();
+        } else {
+            hideUnitInfo();
+        }
+    }
+
+    var showingUnitOptions = false;
+    function showUnitOptions() {
+        if (showingUnitOptions) {
+            hideUnitInfo();
+            showingUnitOptions = false;
+        } else {
+            client.showUnitOptions();
+            showingUnitOptions = true;
+        }
+    }
+
+    domHelpButton.addEventListener('mousedown', showUnitOptions);
+    domUnitInfo.addEventListener('mousedown', showUnitOptions);
+    client.on('input:unit:info', showUnitInfo);
+    //domHelpButton.addEventListener('touchend', toggleUnitInfo);
+};
+
+},{"./keymanager":15,"underscore":40}],37:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -4442,36 +4525,30 @@ Client.prototype.unitEvents = function(unit, entity) {
 
                 (function sortLineOfSight() {
                     var tile, start, end, h, slope;
-                    var slopes = {};
+                    var _dict = {};
+                    var list = [];
                     for(var i=0, total=targets.length; i < total; i++) {
                         tile = targets[i];
                         start = HexUtil.coord(entity.tile);
                         end = HexUtil.coord(tile);
                         // Pythagorean theorem for distance calculation
                         // used for determining line of sight.
-                        h = Math.sqrt(
+                        tile.distance = Math.sqrt(
                             Math.pow(end.x - start.x,2) +
                             Math.pow(end.y - start.y,2)
                         );
                         // use to determine the angle of the unit.
                         slope = (end.y - start.y) / (end.x - start.x);
-                        tile.slope = slope;
-                        if (slopes[slope]) {
-                            if (tile.slope < slopes[slope].slope) {
-                                slopes[slope] = tile;
-                            }
+                        if (!_dict[slope]) {
+                            _dict[slope] = tile;
+                            list.push(_dict[slope]);
                         } else {
-                            slopes[slope] = tile;
+                            if ([_dict].distance > tile.distance )  {
+                                _dict[slope] = tile;
+                            }
                         }
                     }
-
-                    targets = [];
-
-                    for(var key in slopes) {
-                        if (slopes.hasOwnProperty(key)) {
-                            targets.push(slopes[key]);
-                        }
-                    }
+                    targets = list;
                 }).call();
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
@@ -4602,7 +4679,6 @@ Client.prototype.unitEvents = function(unit, entity) {
         }
     });
 };
-
 
 Client.prototype.showTileBonus = function(tile, fn) {
     var _this = this;
@@ -4969,90 +5045,7 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":21,"../game/game":36,"./settings":4,"./unit-classes/marine":27,"./unit-classes/vanguard":29,"./unit-classes/powernode":30,"./frame-data-offset":13,"../game/wait":14,"underscore":40}],38:[function(require,module,exports){var _ = require('underscore');
-var keymanager = require('./keymanager');
-
-_.templateSettings = {
-  interpolate : /\{\{(.+?)\}\}/g
-};
-
-
-module.exports = function UIKeyBindings(game, client) {
-    var tplUnitInfo = _.template(document.querySelector('#tpl-unit-info').innerHTML);
-    var domUnitInfo = document.querySelector('#unit-info');
-    var domUIContainer = document.querySelector('#ui-container');
-    var domHelpButton = document.querySelector('#help-button');
-
-    function showUnitInfo(entity) {
-        if (!entity) {
-            return;
-        }
-        game.getEntity(entity.id, function(entity) {
-            var health = entity.stats.get('health');
-            var range = entity.stats.get('range');
-            var reach = entity.commands.at(0);
-            domUnitInfo.innerHTML = tplUnitInfo({
-                name: entity.data.name,
-                role: entity.data.role,
-                description: entity.data.description,
-                health: health.ratio(),
-                health_val: health.val(),
-                health_max: health.max,
-                def: entity.stats.get('defense').val(),
-                atk: entity.commands.at(0).damage
-            });
-            _.each(
-                domUnitInfo.querySelectorAll('.range-stat .range-bg'),
-                function(rangeBG, i) {
-                    if (i + 1> range.val()) {
-                        rangeBG.innerHTML = '';
-                    }
-                }
-            );
-
-            _.each(
-                domUnitInfo.querySelectorAll('.reach-stat .reach-bg'),
-                function(reachBG, i) {
-                    if (i > reach.range - 1) {
-                        reachBG.innerHTML = '';
-                    }
-                }
-            );
-            domUnitInfo.classList.remove('hidden');
-        });
-    }
-
-    function hideUnitInfo() {
-        domUnitInfo.classList.add('hidden');
-        client.hideUnitOptions();
-    }
-
-    function toggleUnitInfo(e) {
-        if (domUnitInfo.classList.contains('hidden')) {
-            showUnitInfo();
-        } else {
-            hideUnitInfo();
-        }
-    }
-
-    var showingUnitOptions = false;
-    function showUnitOptions() {
-        if (showingUnitOptions) {
-            hideUnitInfo();
-            showingUnitOptions = false;
-        } else {
-            client.showUnitOptions();
-            showingUnitOptions = true;
-        }
-    }
-
-    domHelpButton.addEventListener('mousedown', showUnitOptions);
-    domUnitInfo.addEventListener('mousedown', showUnitOptions);
-    client.on('input:unit:info', showUnitInfo);
-    //domHelpButton.addEventListener('touchend', toggleUnitInfo);
-};
-
-},{"./keymanager":15,"underscore":40}],39:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
+},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":21,"../game/game":36,"./settings":4,"./unit-classes/marine":27,"./unit-classes/vanguard":29,"./unit-classes/powernode":30,"./frame-data-offset":13,"../game/wait":14,"underscore":40}],39:[function(require,module,exports){var EventEmitter = require('events').EventEmitter;
 var _ = require('underscore');
 var Game = require('../game/game');
 var unitTypes = require('../game/unit-types');
