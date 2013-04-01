@@ -181,17 +181,49 @@ function serverEmulator(socket, level) {
             return this.wait(time, function() {
                 game.spawnEntity({
                     id: _.uniqueId('unit'),
+                    type: 'powernode',
+                    attributes: unitTypes['powernode'],
+                    x: 1,
+                    y: 3
+                });
+                
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'powernode',
+                    attributes: unitTypes['powernode'],
+                    x: 9,
+                    y: 3
+                });
+
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
                     type: 'marine',
                     attributes: unitTypes['marine'],
-                    x: 2,
-                    y: 6
+                    x: 0,
+                    y: 3
                 });
                 game.spawnEntity({
                     id: _.uniqueId('unit'),
                     type: 'vanguard',
                     attributes: unitTypes['vanguard'],
+                    x: 2,
+                    y: 2
+                });
+                
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'marine',
+                    attributes: unitTypes['marine'],
+                    x: 2,
+                    y: 3
+                });
+
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'vanguard',
+                    attributes: unitTypes['vanguard'],
                     x: 3,
-                    y: 5
+                    y: 3
                 });
                 //routes.emit('unit:create', {
                 //    c: 'create',

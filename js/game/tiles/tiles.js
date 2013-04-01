@@ -152,12 +152,12 @@ Tiles.prototype.euclidean = function(start, destination, cost) {
     if (cost === null) {
         cost = 1;
     }
-    //vectorX = Math.pow(start.x - destination.x, 2);
-    //vectorY = Math.pow(start.y - destination.y, 2);
-    //return Math.sqrt(vectorX + vectorY);
-    vectorX = start.x - destination.x;
-    vectorY = start.y - destination.y;
-    return Math.sqrt(vectorX * vectorX + vectorY * vectorY) * cost;
+    vectorX = Math.pow(start.x - destination.x, 2);
+    vectorY = Math.pow(start.y - destination.y, 2);
+    return Math.sqrt(vectorX + vectorY);
+    //vectorX = start.x - destination.x;
+    //vectorY = start.y - destination.y;
+    //return Math.sqrt(vectorX * vectorX + vectorY * vectorY) * cost;
 };
 
 

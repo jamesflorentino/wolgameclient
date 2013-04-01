@@ -20,17 +20,20 @@ UnitSprite.prototype.initialize = function(entity) {
     this.endAnimations = new EventEmitter();
 };
 
-UnitSprite.prototype.face = function(direction) {
+UnitSprite.prototype.face = function(direction, prevent) {
     var scale;
     switch (direction) {
         case 'left':
-            this.container.scaleX = scale = -1;
+            scale = -1;
         break;
         case 'right':
-            this.container.scaleX = scale = 1;
+            scale = 1;
         break;
         default:
             throw 'unrecognized value `' + direction + '` for parameter direction. Possible values: left|right';
+    }
+    if (!prevent) {
+        this.container.scaleX = scale;
     }
     if (this.infoButton) {
         this.infoButton.scaleX = scale;

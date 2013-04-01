@@ -1,4 +1,5 @@
 var _ = require('underscore');
+var keymanager = require('./keymanager');
 
 _.templateSettings = {
   interpolate : /\{\{(.+?)\}\}/g
@@ -41,7 +42,7 @@ module.exports = function UIKeyBindings(game, client) {
             _.each(
                 domUnitInfo.querySelectorAll('.reach-stat .reach-bg'),
                 function(reachBG, i) {
-                    if (i > reach.range) {
+                    if (i > reach.range - 1) {
                         reachBG.innerHTML = '';
                     }
                 }

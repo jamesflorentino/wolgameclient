@@ -7,7 +7,8 @@ var settings = require('./settings');
 var EventEmitter = require('events').EventEmitter;
 var spriteClasses = {
     marine: require('./unit-classes/marine'),
-    vanguard: require('./unit-classes/vanguard')
+    vanguard: require('./unit-classes/vanguard'),
+    powernode: require('./unit-classes/powernode')
 };
 var frameDataOffset = require('./frame-data-offset');
 var _ = require('underscore');
@@ -74,6 +75,7 @@ Client.prototype.initialize = function(game) {
                         turnRoutes.emit('result:' + result.status, unit);
                     });
                 });
+
                 _.each(tileSprites, function(tileSprite) {
                     tileSprite.parent.removeChild(tileSprite);
                 });
@@ -175,8 +177,9 @@ Client.prototype.applySpriteOffset = function(sprite, name) {
 };
 
 Client.prototype.createFGElement = function(name, tile, callback) {
-    var animation, spriteSheet, coord, regX, regY, _this = this;
+    var animation, spriteSheet, coord, regX, regY, offsetDepth, _this = this;
     spriteSheet = this.spriteSheets.foreground;
+    offsetDepth = typeof tile.offsetdepth === 'number' ? tile.offsetdepth : 0;
     if (spriteSheet.getAnimation(name)) {
         animation = new createjs.BitmapAnimation(spriteSheet);
         animation.gotoAndStop(name);
@@ -186,7 +189,7 @@ Client.prototype.createFGElement = function(name, tile, callback) {
             x: coord.x,
             y: coord.y
         });
-        _this.setSpriteDepth(animation, tile.z);
+        _this.setSpriteDepth(animation, tile.z + offsetDepth);
         if (typeof callback === 'function') {
             callback(animation);
         }
@@ -284,6 +287,7 @@ Client.prototype.unitEvents = function(unit, entity) {
 
     entity.on('disable', function() {
         var sprite = unit.container.getChildByName('indicator');
+        Tween.removeTweens(sprite);
         if (sprite) {
             sprite.parent.removeChild(sprite);
         }
@@ -297,6 +301,7 @@ Client.prototype.unitEvents = function(unit, entity) {
         unit.prevX = HexUtil.coord(prevTile).x;
         unit.moveStart();
         Tween.removeTweens(unit.container);
+        Tween.get(unit.container.getChildByName('indicator')).to({ alpha: 0, scaleX: 0, scaleY: 0 }, 100);
 
         if (unit.tilePathObject) {
             _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
@@ -393,6 +398,10 @@ Client.prototype.unitEvents = function(unit, entity) {
     });
 
     unit.on('move:end', function() {
+        var indicator = unit.container.getChildByName('indicator');
+        if (indicator) {
+            Tween.get(indicator).to({ alpha: 1, scaleX: 1, scaleY: 1 }, 600, Ease.quintInOut);
+        }
         _this.showTileBonus(entity.tile, function(particle) {
             unit.particles = [particle];
         });
@@ -457,6 +466,7 @@ Client.prototype.unitEvents = function(unit, entity) {
 
     unit.on('tile:select:act', function(command) {
         var targets;
+        var entityTile = entity.tile;
         if (command || (command = entity.commands.first())) {
             if (unit.tileSpritesTarget) {
                 unit.emit('tiles:hide:act');
@@ -468,13 +478,46 @@ Client.prototype.unitEvents = function(unit, entity) {
                     var truthy = tile.entities.length > 0;
                     _.each(tile.entities, function(entity) {
                         if (entity.stats.get('health').val() === 0) {
-                            //return (truthy = false);
                             truthy = false;
                         }
                         return truthy;
                     });
                     return truthy;
                 });
+
+                (function sortLineOfSight() {
+                    var tile, start, end, h, slope;
+                    var slopes = {};
+                    for(var i=0, total=targets.length; i < total; i++) {
+                        tile = targets[i];
+                        start = HexUtil.coord(entity.tile);
+                        end = HexUtil.coord(tile);
+                        // Pythagorean theorem for distance calculation
+                        // used for determining line of sight.
+                        h = Math.sqrt(
+                            Math.pow(end.x - start.x,2) +
+                            Math.pow(end.y - start.y,2)
+                        );
+                        // use to determine the angle of the unit.
+                        slope = (end.y - start.y) / (end.x - start.x);
+                        tile.slope = slope;
+                        if (slopes[slope]) {
+                            if (tile.slope < slopes[slope].slope) {
+                                slopes[slope] = tile;
+                            }
+                        } else {
+                            slopes[slope] = tile;
+                        }
+                    }
+
+                    targets = [];
+
+                    for(var key in slopes) {
+                        if (slopes.hasOwnProperty(key)) {
+                            targets.push(slopes[key]);
+                        }
+                    }
+                }).call();
 
                 _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
                     var targetUnit;

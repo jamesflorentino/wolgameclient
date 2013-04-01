@@ -27,7 +27,7 @@ Vanguard.prototype.initialize = function(entity) {
     this.walkDuration = 900;
     this.animation = new createjs.BitmapAnimation(spriteSheet);
     this.container.addChild(this.animation);
-    this.animation.gotoAndPlay('idle')
+    this.animation.gotoAndPlay('idle');
     /** Sequence Events **/
 };
 
@@ -52,7 +52,6 @@ Vanguard.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
 };
 
-
 Vanguard.prototype.actStart = function() {
     var _this = this;
     this.animation.gotoAndPlay('attack');
@@ -67,7 +66,6 @@ Vanguard.prototype.actStart = function() {
 }
 
 Vanguard.prototype.die = function() {
-    console.log('die');
     this.animation.gotoAndPlay('die_start');
 };
 
