@@ -285,6 +285,36 @@ EventEmitter.prototype.listeners = function(type) {
 module.exports = base;
 
 },{}],6:[function(require,module,exports){var logs = require('../logs');
+
+function clientEvents(game, client, socket) {
+    client.on('input:move', function(data) {
+        socket.emit('unit:turn', {
+            c: 'move',
+            id: data.entity.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
+    client.on('input:act', function(data) {
+        socket.emit('unit:turn', {
+            c: 'act',
+            id: data.entity.id,
+            target: data.target.id,
+            command: data.command.id,
+            x: data.tile.x,
+            y: data.tile.y
+        });
+    });
+    client.on('input:skip', function() {
+        socket.emit('unit:turn', {
+            c: 'skip'
+        });
+    });
+}
+
+module.exports = clientEvents;
+
+},{"../logs":7}],8:[function(require,module,exports){var logs = require('../logs');
 var EventEmitter = require('events').EventEmitter;
 var unitTypes = require('../game/unit-types');
 
@@ -367,37 +397,7 @@ function gameRoutes(socket, game) {
 
 module.exports = gameRoutes;
 
-},{"events":2,"../logs":7,"../game/unit-types":8}],9:[function(require,module,exports){var logs = require('../logs');
-
-function clientEvents(game, client, socket) {
-    client.on('input:move', function(data) {
-        socket.emit('unit:turn', {
-            c: 'move',
-            id: data.entity.id,
-            x: data.tile.x,
-            y: data.tile.y
-        });
-    });
-    client.on('input:act', function(data) {
-        socket.emit('unit:turn', {
-            c: 'act',
-            id: data.entity.id,
-            target: data.target.id,
-            command: data.command.id,
-            x: data.tile.x,
-            y: data.tile.y
-        });
-    });
-    client.on('input:skip', function() {
-        socket.emit('unit:turn', {
-            c: 'skip'
-        });
-    });
-}
-
-module.exports = clientEvents;
-
-},{"../logs":7}],10:[function(require,module,exports){var Tile = function() {
+},{"events":2,"../logs":7,"../game/unit-types":9}],10:[function(require,module,exports){var Tile = function() {
     this.initialize.apply(this, arguments);
 };
 
@@ -581,7 +581,7 @@ KeyManager.prototype.init = function(document) {
 
 module.exports = new KeyManager();
 
-},{"events":2}],8:[function(require,module,exports){module.exports = {
+},{"events":2}],9:[function(require,module,exports){module.exports = {
     powernode: {
         data: {
             name: 'Power Node',
@@ -616,7 +616,7 @@ module.exports = new KeyManager();
                 damage: 300,
                 range: 2,
                 cooldown: 0,
-                splash: 2
+                splash: 1
             }
         }
     },
@@ -2505,7 +2505,7 @@ window.addEventListener('load', function() {
     });
 });
 
-},{"events":2,"./client/asset-manifest.js":3,"./game/game":36,"./client/client":37,"./client/settings":4,"./client/ui-keybindings":38,"./routes/game-server":39,"./routes/game-routes":6,"./routes/client-routes":9,"./levels/base":5,"underscore":40}],40:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
+},{"events":2,"./client/asset-manifest.js":3,"./game/game":36,"./client/client":37,"./client/settings":4,"./client/ui-keybindings":38,"./routes/game-server":39,"./routes/client-routes":6,"./routes/game-routes":8,"./levels/base":5,"underscore":40}],40:[function(require,module,exports){(function(){//     Underscore.js 1.4.4
 //     http://underscorejs.org
 //     (c) 2009-2013 Jeremy Ashkenas, DocumentCloud Inc.
 //     Underscore may be freely distributed under the MIT license.
@@ -3733,7 +3733,227 @@ window.addEventListener('load', function() {
 }).call(this);
 
 })()
-},{}],37:[function(require,module,exports){(function(){/*global createjs */
+},{}],36:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
+var EventEmitter = require('events').EventEmitter;
+var GameEntity = require('./entity');
+var Tile = require('./tiles/tile');
+var _ = require('underscore');
+
+var Game = function() {
+    this.initialize.apply(this, arguments);
+};
+
+Game.rows = 8;
+Game.columns = 10;
+
+Game.prototype = new EventEmitter();
+
+Game.prototype.initialize = function() {
+    this.entities = [];
+    this._entitiesDict = {};
+    this.tiles = new HexTiles(Game.columns, Game.rows);
+};
+
+Game.prototype.addEntity = function(entity) {
+    if (entity instanceof GameEntity) {
+        if (entity.id) {
+            this._entitiesDict[entity.id] = entity;
+            this.entities.push(entity);
+            this.emit('unit:add', entity);
+        } else {
+            throw(new Error('GameEntity requires an ID'));
+        }
+    } else {
+        throw(new Error('Not a valid GameEntity'));
+    }
+};
+
+Game.prototype.removeEntity = function(entity) {
+    var tile = entity.tile;
+    tile.vacate(entity);
+    delete this._entitiesDict[entity.id];
+    this.entities.splice(this.entities.indexOf(entity), 1);
+    this.emit('unit:remove', entity);
+    entity.die();
+};
+
+Game.prototype.createEntity = function(options, callback) {
+    var entity = GameEntity.create(options.id);
+    if (entity) {
+        if (options) {
+            entity.type = options.type;
+            entity.set(options.attributes);
+        }
+        if (typeof callback === 'function') {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.spawnEntity = function(options, fn) {
+    var _this = this;
+    this.createEntity(options, function(entity) {
+        _this.tiles.get(options.x, options.y, function(tile) {
+            entity.move(tile);
+            _this.addEntity(entity);
+            if (typeof fn === 'function') {
+                fn(entity);
+            }
+        });
+    });
+};
+
+Game.prototype.moveEntity = function(entity, tile, sync) {
+    entity.move(tile, sync);
+    this.emit('unit:move', entity, sync);
+};
+
+Game.prototype.getEntity = function(id, callback) {
+    var entity = this._entitiesDict[id];
+
+    if (typeof callback === 'function') {
+        if (entity) {
+            callback(entity);
+        }
+    }
+    return entity;
+};
+
+Game.prototype.eachEntity = function(callback) {
+    _.each(this.entities, callback);
+};
+
+Game.prototype.loadMap = function(tiles) {
+    var _this = this;
+    _.each(tiles, function(t) {
+        _this.tiles.get(t.x, t.y, function(tile) {
+            for(var key in t) {
+                if (t.hasOwnProperty(key)) {
+                    tile[key] = t[key];
+                }
+            }
+        });
+    });
+};
+
+
+Game.prototype.actEntity = function(entity, tile, command, target) {
+    var _this = this;
+    var attackRange = command.range;
+    var splashRange = command.splash;
+    var targets = [];
+    var results = [];
+    var tiles;
+    var p = tile;
+
+    // get the affected units
+    tiles = this.tiles.neighbors(tile, splashRange);
+    tiles = [tile].concat(tiles);
+    tiles = _.filter(tiles, function(tile) {
+        return tile.entities.length > 0 && !tile.has(entity);
+    });
+
+    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
+        var target, result;
+        target = tile.entities[0];
+        if (target.stats.get('health').val() > 0) {
+            result = entity.act(target, command, i);
+            target.damage(result.damage);
+            targets.push({
+                id: target.id,
+                damage: result.damage
+            });
+            if (result.status) {
+                results.push({
+                    id: target.id,
+                    status: result.status
+                });
+            }
+        }
+
+    });
+
+    this.emit('unit:act', {
+        id: entity.id,
+        x: tile.x,
+        y: tile.y,
+        type: command.id,
+        targets: targets,
+        results: results
+    });
+};
+
+/** Turn based component **/
+Game.prototype.setTurn = function(entity) {
+    if (this.entities.indexOf(entity) > -1) {
+        this.currentTurn = entity;
+        entity.stats.get('actions').reset();
+        entity.enable();
+        this.emit('unit:enable', entity);
+    }
+};
+
+Game.prototype.endTurn = function() {
+    var entity = this.currentTurn;
+    if (entity) {
+        entity.disable();
+        entity.stats.get('turn').empty();
+        this.emit('unit:disable', entity);
+    }
+    this.currentTurn = null;
+};
+
+Game.prototype.nextTurn = function() {
+    var _this = this;
+    var interval;
+    var calculate = function() {
+        var entity, turn, turnspeed, i, l;
+        console.log('calculating');
+        for (i = 0, l = _this.entities.length; i < l; i++){
+            entity = _this.entities[i];
+            if (entity.stats.get('health').val() === 0) {
+                continue;
+            }
+            turn = entity.stats.get('turn');
+            turn.increase(entity.stats.get('turnspeed').val());
+            if (turn.val() == turn.max) {
+                _this.setTurn(entity);
+                clearInterval(interval);
+                break;
+            }
+        };
+    };
+    this.endTurn();
+    interval = setInterval(calculate, 10);
+};
+
+Game.prototype.getTurnID = function(fn) {
+    if (typeof fn === 'function') {
+        fn(this.currentTurn);
+    }
+    return this.currentTurn;
+};
+
+Game.prototype.checkCurrentTurn = function() {
+    if (this.currentTurn.stats.get('actions').val() === 0){
+        this.endTurn();
+        this.nextTurn();
+    }
+};
+
+Game.create = function(callback) {
+    var game = new Game();
+    if (typeof callback === 'function') {
+        callback(null, game);
+    }
+    return game;
+};
+
+
+module.exports = Game;
+
+},{"events":2,"./tiles/hextiles":16,"./entity":18,"./tiles/tile":10,"underscore":40}],37:[function(require,module,exports){(function(){/*global createjs */
 var Preloader = require('./Preloader');
 var HexUtil = require('./hexutil');
 var frames = require('./frames/frames'); // spriteSheet frameData
@@ -4749,227 +4969,7 @@ Client.create = function(game, callback) {
 module.exports = Client;
 
 })()
-},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":21,"../game/game":36,"./settings":4,"./unit-classes/marine":27,"./unit-classes/vanguard":29,"./unit-classes/powernode":30,"./frame-data-offset":13,"../game/wait":14,"underscore":40}],36:[function(require,module,exports){var HexTiles = require('./tiles/hextiles');
-var EventEmitter = require('events').EventEmitter;
-var GameEntity = require('./entity');
-var Tile = require('./tiles/tile');
-var _ = require('underscore');
-
-var Game = function() {
-    this.initialize.apply(this, arguments);
-};
-
-Game.rows = 8;
-Game.columns = 10;
-
-Game.prototype = new EventEmitter();
-
-Game.prototype.initialize = function() {
-    this.entities = [];
-    this._entitiesDict = {};
-    this.tiles = new HexTiles(Game.columns, Game.rows);
-};
-
-Game.prototype.addEntity = function(entity) {
-    if (entity instanceof GameEntity) {
-        if (entity.id) {
-            this._entitiesDict[entity.id] = entity;
-            this.entities.push(entity);
-            this.emit('unit:add', entity);
-        } else {
-            throw(new Error('GameEntity requires an ID'));
-        }
-    } else {
-        throw(new Error('Not a valid GameEntity'));
-    }
-};
-
-Game.prototype.removeEntity = function(entity) {
-    var tile = entity.tile;
-    tile.vacate(entity);
-    delete this._entitiesDict[entity.id];
-    this.entities.splice(this.entities.indexOf(entity), 1);
-    this.emit('unit:remove', entity);
-    entity.die();
-};
-
-Game.prototype.createEntity = function(options, callback) {
-    var entity = GameEntity.create(options.id);
-    if (entity) {
-        if (options) {
-            entity.type = options.type;
-            entity.set(options.attributes);
-        }
-        if (typeof callback === 'function') {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.spawnEntity = function(options, fn) {
-    var _this = this;
-    this.createEntity(options, function(entity) {
-        _this.tiles.get(options.x, options.y, function(tile) {
-            entity.move(tile);
-            _this.addEntity(entity);
-            if (typeof fn === 'function') {
-                fn(entity);
-            }
-        });
-    });
-};
-
-Game.prototype.moveEntity = function(entity, tile, sync) {
-    entity.move(tile, sync);
-    this.emit('unit:move', entity, sync);
-};
-
-Game.prototype.getEntity = function(id, callback) {
-    var entity = this._entitiesDict[id];
-
-    if (typeof callback === 'function') {
-        if (entity) {
-            callback(entity);
-        }
-    }
-    return entity;
-};
-
-Game.prototype.eachEntity = function(callback) {
-    _.each(this.entities, callback);
-};
-
-Game.prototype.loadMap = function(tiles) {
-    var _this = this;
-    _.each(tiles, function(t) {
-        _this.tiles.get(t.x, t.y, function(tile) {
-            for(var key in t) {
-                if (t.hasOwnProperty(key)) {
-                    tile[key] = t[key];
-                }
-            }
-        });
-    });
-};
-
-
-Game.prototype.actEntity = function(entity, tile, command, target) {
-    var _this = this;
-    var attackRange = command.range;
-    var splashRange = command.splash;
-    var targets = [];
-    var results = [];
-    var tiles;
-    var p = tile;
-
-    // get the affected units
-    tiles = this.tiles.neighbors(tile, splashRange);
-    tiles = [tile].concat(tiles);
-    tiles = _.filter(tiles, function(tile) {
-        return tile.entities.length > 0 && !tile.has(entity);
-    });
-
-    _.each(tiles, function(tile, i) { // Subsequent damage chains of the tiles shouldn't be as high as the targetted unit
-        var target, result;
-        target = tile.entities[0];
-        if (target.stats.get('health').val() > 0) {
-            result = entity.act(target, command, i);
-            target.damage(result.damage);
-            targets.push({
-                id: target.id,
-                damage: result.damage
-            });
-            if (result.status) {
-                results.push({
-                    id: target.id,
-                    status: result.status
-                });
-            }
-        }
-
-    });
-
-    this.emit('unit:act', {
-        id: entity.id,
-        x: tile.x,
-        y: tile.y,
-        type: command.id,
-        targets: targets,
-        results: results
-    });
-};
-
-/** Turn based component **/
-Game.prototype.setTurn = function(entity) {
-    if (this.entities.indexOf(entity) > -1) {
-        this.currentTurn = entity;
-        entity.stats.get('actions').reset();
-        entity.enable();
-        this.emit('unit:enable', entity);
-    }
-};
-
-Game.prototype.endTurn = function() {
-    var entity = this.currentTurn;
-    if (entity) {
-        entity.disable();
-        entity.stats.get('turn').empty();
-        this.emit('unit:disable', entity);
-    }
-    this.currentTurn = null;
-};
-
-Game.prototype.nextTurn = function() {
-    var _this = this;
-    var interval;
-    var calculate = function() {
-        var entity, turn, turnspeed, i, l;
-        console.log('calculating');
-        for (i = 0, l = _this.entities.length; i < l; i++){
-            entity = _this.entities[i];
-            if (entity.stats.get('health').val() === 0) {
-                continue;
-            }
-            turn = entity.stats.get('turn');
-            turn.increase(entity.stats.get('turnspeed').val());
-            if (turn.val() == turn.max) {
-                _this.setTurn(entity);
-                clearInterval(interval);
-                break;
-            }
-        };
-    };
-    this.endTurn();
-    interval = setInterval(calculate, 10);
-};
-
-Game.prototype.getTurnID = function(fn) {
-    if (typeof fn === 'function') {
-        fn(this.currentTurn);
-    }
-    return this.currentTurn;
-};
-
-Game.prototype.checkCurrentTurn = function() {
-    if (this.currentTurn.stats.get('actions').val() === 0){
-        this.endTurn();
-        this.nextTurn();
-    }
-};
-
-Game.create = function(callback) {
-    var game = new Game();
-    if (typeof callback === 'function') {
-        callback(null, game);
-    }
-    return game;
-};
-
-
-module.exports = Game;
-
-},{"events":2,"./tiles/hextiles":16,"./entity":18,"./tiles/tile":10,"underscore":40}],38:[function(require,module,exports){var _ = require('underscore');
+},{"events":2,"./Preloader":11,"./hexutil":12,"./frames/frames":21,"../game/game":36,"./settings":4,"./unit-classes/marine":27,"./unit-classes/vanguard":29,"./unit-classes/powernode":30,"./frame-data-offset":13,"../game/wait":14,"underscore":40}],38:[function(require,module,exports){var _ = require('underscore');
 var keymanager = require('./keymanager');
 
 _.templateSettings = {
@@ -5364,4 +5364,4 @@ function serverEmulator(socket, level) {
 
 module.exports = serverEmulator;
 
-},{"events":2,"../game/game":36,"../game/unit-types":8,"underscore":40}]},{},[35]);
+},{"events":2,"../game/game":36,"../game/unit-types":9,"underscore":40}]},{},[35]);

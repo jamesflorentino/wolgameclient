@@ -33,7 +33,7 @@ module.exports = {
                 damage: 300,
                 range: 2,
                 cooldown: 0,
-                splash: 2
+                splash: 1
             }
         }
     },
