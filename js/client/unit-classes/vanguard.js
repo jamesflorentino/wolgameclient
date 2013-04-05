@@ -33,6 +33,7 @@ Vanguard.prototype.initialize = function(entity) {
 
 Vanguard.prototype.moveStart = function() {
     this.animation.gotoAndPlay('move_start');
+    this.__super.moveStart.apply(this, arguments);
 };
 
 Vanguard.prototype.moveEnd = function() {
@@ -42,14 +43,17 @@ Vanguard.prototype.moveEnd = function() {
 
 Vanguard.prototype.damageStart = function() {
     this.animation.gotoAndPlay('defend_start');
+    this.__super.damageStart.apply(this, arguments);
 };
 
 Vanguard.prototype.damageEnd = function() {
     this.animation.gotoAndPlay('defend_end');
+    this.__super.damageEnd.apply(this, arguments);
 };
 
 Vanguard.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
+    this.__super.damage.apply(this, arguments);
 };
 
 Vanguard.prototype.actStart = function() {
@@ -67,6 +71,7 @@ Vanguard.prototype.actStart = function() {
 
 Vanguard.prototype.die = function() {
     this.animation.gotoAndPlay('die_start');
+    this.__super.die.apply(this, arguments);
 };
 
 module.exports = Vanguard;

@@ -67,18 +67,22 @@ Marine.prototype.actStart = function() {
 
 Marine.prototype.damageStart = function() {
     this.animation.gotoAndPlay('defend_start');
+    this.__super.damageStart.apply(this, arguments);
 };
 
 Marine.prototype.damageEnd = function() {
     this.animation.gotoAndPlay('defend_end');
+    this.__super.damageEnd.apply(this, arguments);
 };
 
 Marine.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
+    this.__super.damage.apply(this, arguments);
 };
 
 Marine.prototype.die = function() {
     this.animation.gotoAndPlay('die_start');
+    this.__super.die.apply(this, arguments);
 };
 
 

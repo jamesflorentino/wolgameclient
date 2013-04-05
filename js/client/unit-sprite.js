@@ -39,6 +39,7 @@ UnitSprite.prototype.face = function(direction, prevent) {
         this.infoButton.scaleX = scale;
     }
     this.direction = scale;
+    this.emit('face', scale)
 };
 
 UnitSprite.prototype.moveStart = function() {
@@ -68,6 +69,7 @@ UnitSprite.prototype.act = function() {
 
 UnitSprite.prototype.damageStart = function() {
     this.emit('damage:start');
+    this.defending = true;
 };
 
 /**
@@ -75,6 +77,8 @@ UnitSprite.prototype.damageStart = function() {
  */
 UnitSprite.prototype.damageEnd = function() {
     this.emit('damage:end');
+    this.emit('show:damage');
+    this.defending = false;
 };
 
 /**
@@ -86,6 +90,7 @@ UnitSprite.prototype.damage = function() {
 
 UnitSprite.prototype.die = function() {
     this.emit('die');
+    this.emit('show:damage');
 };
 
 

@@ -25,10 +25,12 @@ PowerNode.prototype.face = function(direction) {
 
 PowerNode.prototype.damage = function() {
     this.animation.gotoAndPlay('hit');
+    this.__super.damage.apply(this, arguments);
 };
 
 PowerNode.prototype.die = function() {
     this.animation.gotoAndPlay('death');
+    this.__super.die.apply(this, arguments);
 };
 
 module.exports = PowerNode;

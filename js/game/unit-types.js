@@ -24,7 +24,7 @@ module.exports = {
                 ' hit multiple enemies at once due to its splash damage at the expense of its limited firing range. '
         },
         stats: {
-            range: 2,
+            range: 3,
             defense: 50,
             health: 800
         },
@@ -47,7 +47,7 @@ module.exports = {
                 'Has average life. Ineffective against armored units.'
         },
         stats: {
-            range: 2,
+            range: 4,
             splash: 1
         },
         commands: {

@@ -1,20 +1,23 @@
+/*jshint laxcomma: true */
+
 /*global createjs */
-var Preloader = require('./Preloader');
-var HexUtil = require('./hexutil');
-var frames = require('./frames/frames'); // spriteSheet frameData
-var Game = require('../game/game');
-var settings = require('./settings');
-var EventEmitter = require('events').EventEmitter;
-var spriteClasses = {
+var _ = require('underscore')
+, Preloader = require('./Preloader')
+, HexUtil = require('./hexutil')
+, frames = require('./frames/frames') // spriteSheet frameData
+, Game = require('../game/game')
+, settings = require('./settings')
+, EventEmitter = require('events').EventEmitter
+, frameDataOffset = require('./frame-data-offset')
+, wait = require('../game/wait')
+, Ease = createjs.Ease
+, Tween = createjs.Tween
+, spriteClasses = {
     marine: require('./unit-classes/marine'),
     vanguard: require('./unit-classes/vanguard'),
     powernode: require('./unit-classes/powernode')
-};
-var frameDataOffset = require('./frame-data-offset');
-var _ = require('underscore');
-var Ease = createjs.Ease;
-var Tween = createjs.Tween;
-var wait = require('../game/wait');
+}
+;
 
 var Client = function(game) {
     this.initialize.apply(this, arguments);
@@ -254,392 +257,16 @@ Client.prototype.createUnit = function(entity, callback) {
     }
 };
 
-Client.prototype.unitEvents = function(unit, entity) {
-    var game = this.game,
-    _this = this;
-
-    entity.on('die', function() {
-        _this.removeUnit(unit);
-    });
-
-    entity.on('enable', function() {
-        _this.createSprite('hex_active', function(err, sprite) {
-            sprite.name = 'indicator';
-            sprite.set({
-                regX: HexUtil.WIDTH * 0.5 + 6,
-                regY: HexUtil.HEIGHT * 0.5,
-                scaleX: 0,
-                scaleY: 0,
-                alpha: 0
-            });
-            Tween.get(sprite)
-                .to({
-                    scaleX: 1,
-                    scaleY: 1,
-                    alpha: 1
-                }, 450, Ease.backInOut);
-            sprite.addEventListener('mousedown', function() {
-                unit.emit('tile:select');
-            });
-            unit.container.addChildAt(sprite, 0);
-        });
-    });
-
-    entity.on('disable', function() {
-        var sprite = unit.container.getChildByName('indicator');
-        Tween.removeTweens(sprite);
-        if (sprite) {
-            sprite.parent.removeChild(sprite);
-        }
-    });
-
-    entity.on('move:start', function moveStart(tile) {
-        var tween;
-        var path;
-        var prevTile = unit.lastTile;
-        path = game.tiles.findPath(prevTile, tile);
-        unit.prevX = HexUtil.coord(prevTile).x;
-        unit.moveStart();
-        Tween.removeTweens(unit.container);
-        Tween.get(unit.container.getChildByName('indicator')).to({ alpha: 0, scaleX: 0, scaleY: 0 }, 100);
-
-        if (unit.tilePathObject) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
-            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
-        }
-
-        if (unit.particles) {
-            _.each(unit.particles, function(particle) {
-                Tween.get(particle)
-                .to({
-                    y: particle.y + 40,
-                    alpha: 0
-                }, 800, Ease.backIn)
-                .call(function() {
-                    particle.parent.removeChild(particle);
-                });
-            });
-            unit.particles = [];
-        }
-
-        tween = Tween.get(unit.container);
-        unit.tilePathObject = _this.generateTilePath(
-            [prevTile].concat(path),
-            function(tileSprite, i, prevTileSprite, tile) {
-                if (i) { // Skip the 1st tile since it's the current
-                    var walkDuration =
-                        tileSprite.y !== (prevTileSprite ? prevTileSprite.y : tileSprite.y) ?
-                        unit.walkDuration * 0.75 :
-                        unit.walkDuration;
-                    tween = tween
-                        .call(function() { // tell which direction to face
-                            if (tileSprite.x > unit.prevX) {
-                                unit.face('right');
-                            } else {
-                                unit.face('left');
-                            }
-                            unit.prevX = tileSprite.x;
-                            unit.prevY = tileSprite.y;
-                            unit.currentTileZ = tile.z;
-                            unit.move(tile);
-                        })
-                        .to({
-                            x: tileSprite.x,
-                            y: tileSprite.y
-                        }, walkDuration);
-                }
-            }
-        );
-        tween.call(function() {
-            var linePath = unit.tilePathObject.linePath;
-            var tileSprites = unit.tilePathObject.tileSprites;
-            _.each(tileSprites, function(tileSprite, i) {
-                Tween.get(tileSprite).wait(i * 100)
-                .to({
-                    scaleX: 0,
-                    scaleY: 0
-                }, 250, Ease.backIn)
-                .call(function() {
-                    if (tileSprite.parent) {
-                        tileSprite.parent.removeChild(tileSprite);
-                    }
-                });
-            });
-            Tween
-                .get(linePath)
-                .wait(105 * tileSprites.length)
-                .to({
-                    alpha: 0
-                }, 150)
-                .call(function() {
-                    if (linePath.parent) {
-                        linePath.parent.removeChild(linePath);
-                    }
-                });
-            unit.moveEnd();
-        });
-    });
-
-    entity.on('move:update', function(tile) {
-        var coord = HexUtil.coord(tile, true);
-        Tween.removeTweens(unit.container);
-        if (unit.tilePathObject) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
-            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
-        }
-        unit.prevX = HexUtil.coord(unit.lastTile).x;
-        unit.container.x = coord.x;
-        unit.container.y = coord.y;
-        unit.move(tile);
-    });
-
-    unit.on('move', function sortUnits(tile) {
-        _this.setSpriteDepth(unit.container, unit.currentTileZ || tile.z);
-    });
-
-    unit.on('move:end', function() {
-        var indicator = unit.container.getChildByName('indicator');
-        if (indicator) {
-            Tween.get(indicator).to({ alpha: 1, scaleX: 1, scaleY: 1 }, 600, Ease.quintInOut);
-        }
-        _this.showTileBonus(entity.tile, function(particle) {
-            unit.particles = [particle];
-        });
-    });
-
-    unit.on('tile:select', function inputSelect() {
-        if (_this.game.currentTurn === entity) {
-            unit.emit('tile:select:move');
-            unit.emit('tile:select:act');
-        }
-    });
-
-    unit.on('tile:select:move', function() {
-        var moveTiles;
-        if (unit.tileSprites) {
-            unit.emit('tiles:hide:path');
-            unit.emit('tiles:hide:move');
-        } else {
-            unit.tileSprites = [];
-            movable = game.tiles.findRange(entity.tile, entity.stats.get('range').value);
-            moveTiles = _.filter(movable, function(tile) {
-                return tile.entities.length === 0 && !tile.wall && tile !== entity.tile;
-            });
-
-            // show moveable tiles
-            _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
-                tileSprite.addEventListener('mousedown', function() {
-                    var tiles, pathSpriteObject, lastTile;
-                    var path = game.tiles.findPath(entity.tile, tile);
-                    tiles = [entity.tile].concat(path);
-                    unit.emit('tiles:hide:target');
-                    unit.emit('tiles:hide:path');
-                    pathSpriteObject = _this.generateTilePath(tiles);
-                    lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
-                    lastTile.addEventListener('mousedown', function() {
-                        wait(100, function() {
-                            _this.emit('input:move', {
-                                tile: tile,
-                                entity: entity
-                            });
-                        });
-                        unit.emit('tiles:hide:all');
-                    });
-                    unit.tileSpritePaths = [].concat(pathSpriteObject.tileSprites).concat(pathSpriteObject.linePath);
-                });
-                unit.tileSprites.push(tileSprite);
-                tileSprite.set({
-                    scaleX: 0,
-                    scaleY: 0,
-                    alpha: 0
-                });
-                Tween.get(tileSprite)
-                    .wait(i * 10)
-                    .to({
-                        scaleX: 1,
-                        scaleY: 1,
-                        alpha: 1
-                    }, 200, Ease.backOut);
-            });
-        }
-    });
-
-    unit.on('tile:select:act', function(command) {
-        var targets;
-        var entityTile = entity.tile;
-        if (command || (command = entity.commands.first())) {
-            if (unit.tileSpritesTarget) {
-                unit.emit('tiles:hide:act');
-                unit.emit('tiles:hide:target');
-            } else {
-                unit.tileSpritesTarget = [];
-                targets = game.tiles.neighbors(entity.tile, command.range);
-                targets = _.filter(targets, function(tile) {
-                    var truthy = tile.entities.length > 0;
-                    _.each(tile.entities, function(entity) {
-                        if (entity.stats.get('health').val() === 0) {
-                            truthy = false;
-                        }
-                        return truthy;
-                    });
-                    return truthy;
-                });
-
-                (function sortLineOfSight() {
-                    var tile, start, end, h, slope;
-                    var _dict = {};
-                    var list = [];
-                    for(var i=0, total=targets.length; i < total; i++) {
-                        tile = targets[i];
-                        start = HexUtil.coord(entity.tile);
-                        end = HexUtil.coord(tile);
-                        // Pythagorean theorem for distance calculation
-                        // used for determining line of sight.
-                        tile.distance = Math.sqrt(
-                            Math.pow(end.x - start.x,2) +
-                            Math.pow(end.y - start.y,2)
-                        );
-                        // use to determine the angle of the unit.
-                        slope = (end.y - start.y) / (end.x - start.x);
-                        if (!_dict[slope]) {
-                            _dict[slope] = tile;
-                            list.push(_dict[slope]);
-                        } else {
-                            if ([_dict].distance > tile.distance )  {
-                                _dict[slope] = tile;
-                            }
-                        }
-                    }
-                    targets = list;
-                }).call();
-
-                _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
-                    var targetUnit;
-                    var targetEntity;
-                    targetEntity = tile.entities[0];
-                    if (targetEntity) {
-                        targetUnit = _this.getUnit(targetEntity.id);
-                        if (targetUnit) {
-                            targetUnit.container.addChildAt(tileSprite, 0);
-                        }
-                    }
-                    unit.tileSpritesTarget.push(tileSprite);
-                    tileSprite.addEventListener('mousedown', function() {
-                        var tiles, tileSprites;
-                        tiles = [tile];
-                        tileSprites = [];
-
-                        unit.emit('tiles:hide:path');
-                        unit.emit('tiles:hide:target');
-                        unit.tileSpritesTargetMark = [];
-
-                        _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
-                            targetUnit.container.addChildAt(tileSprite, 1);
-                            tileSprites.push(tileSprite);
-                            tileSprite.addEventListener('mousedown', function() { 
-                                /** delay to give some breathing space to the UI **/
-                                wait(100, function() {
-                                    _this.emit('input:act', {
-                                        tile: tile,
-                                        entity: entity,
-                                        target: targetEntity,
-                                        command: command
-                                    });
-                                });
-                                unit.emit('tiles:hide:all');
-                            });
-                            tileSprite.set({
-                                x: 0,
-                                y: 0,
-                                scaleX: 0,
-                                scaleY: 0,
-                                alpha: 0
-                            });
-                            Tween.get(tileSprite)
-                            .wait(i * 10)
-                            .to({
-                                scaleX: 1,
-                                scaleY: 1,
-                                alpha: 1
-                            }, 200, Ease.backOut);
-
-                            var splashTiles = game.tiles.neighbors(tile, command.splash);
-                            splashTiles = _.filter(splashTiles, function(tile) {
-                                var entities = tile.entities;
-                                return entities.length && entities[0] !== entity && !entities[0].isDead();
-                            });
-                            var targetTile = tile;
-                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile) {
-                                unit.tileSpritesTargetMark.push(tileSprite);
-                                var linePath = _this.createAttackLinePath(targetTile, tile);
-                                unit.tileSpritesTargetMark.push(linePath);
-                            });
-                        });
-
-                        var linePath = _this.createAttackLinePath(entity.tile, tile);
-                        unit.tileSpritesTargetMark.push(linePath);
-                        unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
-                    });
-                    tileSprite.set({
-                        x: 0,
-                        y: 0,
-                        scaleX: 0,
-                        scaleY: 0,
-                        alpha: 0
-                    });
-                    Tween.get(tileSprite)
-                    .wait(i * 10)
-                    .to({
-                        scaleX: 1,
-                        scaleY: 1,
-                        alpha: 1
-                    }, 200, Ease.backOut);
-                });
-            }
-        }
-    });
-
-    unit.on('tiles:hide:all', function() {
-        unit.emit('tiles:hide:path');
-        unit.emit('tiles:hide:move');
-        unit.emit('tiles:hide:act');
-        unit.emit('tiles:hide:target');
-    });
-
-    unit.on('tiles:hide:act', function() {
-        var tiles = unit.tileSpritesTarget;
-        if (tiles) {
-            _.each(tiles, function(sprite) {
-                sprite.parent.removeChild(sprite);
-            });
-            delete unit.tileSpritesTarget;
-        }
-    });
-
-    unit.on('tiles:hide:target', function() {
-        var tiles = unit.tileSpritesTargetMark;
-        if (tiles) {
-            _.each(tiles, function(sprite) {
-                sprite.parent.removeChild(sprite);
-            });
-            delete unit.tileSpritesTargetMark;
-        }
-    });
-
-    unit.on('tiles:hide:path', function() {
-        var tiles = unit.tileSpritePaths;
-        if (tiles) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, tiles);
-            delete unit.tileSpritePaths;
-        }
-    });
-
-    unit.on('tiles:hide:move', function() {
-        if (unit.tileSprites) {
-            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tileSprites);
-            delete unit.tileSprites;
-        }
-    });
+Client.prototype.createHealthBar = function() {
+    var container = new createjs.Container();
+    var bar = this.createSprite('hp-bar');
+    var barBG = this.createSprite('hp-bar-bg');
+    var bg = this.createSprite('hp-bg');
+    bar.name = 'bar';
+    barBG.name = 'bar-bg';
+    bg.name = 'bg';
+    container.addChild(bg, barBG, bar);
+    return container;
 };
 
 Client.prototype.showTileBonus = function(tile, fn) {
@@ -815,6 +442,7 @@ Client.prototype.spawnUnit = function(unit, tile, callback) {
             unit.container.x = coord.x;
             unit.container.y = coord.y;
             unit.move(tile);
+            unit.emit('spawn');
             unit.face(tile.x > Game.columns * 0.5 ? 'left' : 'right');
             if (typeof callback === 'function') {
                 callback(null, unit);
@@ -890,9 +518,12 @@ Client.prototype.setTiles = function(tiles, callback) {
     cacheContainer.cache(0, 0, terrainWidth, terrainHeight);
     cacheContainer.name = 'tileBackgrounds';
     this.layers.terrain.addChild(cacheContainer);
-    this.layers.terrain.addChild(this.layers.tiles); // make sure it's on top :)
-    this.layers.terrain.addChild(this.layers.units); // make sure it's on top :)
-    this.layers.terrain.addChild(this.layers.particles); // make sure it's on top :)
+    this.layers.terrain.addChild(
+        this.layers.tiles,
+        this.layers.units,
+        this.layers.particles,
+        this.layers.hpbars
+    ); // make sure it's on top :)
     this.layers.terrain.x = settings.terrainX;
     this.layers.terrain.y = settings.terrainY;
     if (typeof callback === 'function') {
@@ -925,9 +556,13 @@ Client.prototype.initializeLayers = function(callback) {
     this.layers.tiles = new createjs.Container();
     this.layers.units = new createjs.Container();
     this.layers.particles = new createjs.Container();
-    this.layers.terrain.addChild(this.layers.tiles);
-    this.layers.terrain.addChild(this.layers.units);
-    this.layers.terrain.addChild(this.layers.particles);
+    this.layers.hpbars = new createjs.Container();
+    this.layers.terrain.addChild(
+        this.layers.tiles,
+        this.layers.units,
+        this.layers.particles,
+        this.layers.hpbars
+    );
     this.stage.addChild(this.layers.terrain);
     callback(null);
 };
@@ -998,6 +633,445 @@ Client.prototype.hideUnitOptions = function() {
     this.layers.tiles.visible = true;
 };
 
+Client.prototype.unitEvents = function(unit, entity) {
+    var game = this.game,
+    _this = this;
+
+    unit.hpbar = this.createHealthBar();
+    this.layers.hpbars.addChild(unit.hpbar);
+
+    entity.on('die', function() {
+        _this.removeUnit(unit);
+    });
+
+    entity.on('enable', function() {
+        _this.createSprite('hex_active', function(err, sprite) {
+            sprite.name = 'indicator';
+            sprite.set({
+                regX: HexUtil.WIDTH * 0.5 + 6,
+                regY: HexUtil.HEIGHT * 0.5,
+                scaleX: 0,
+                scaleY: 0,
+                alpha: 0
+            });
+            Tween.get(sprite)
+                .to({
+                    scaleX: 1,
+                    scaleY: 1,
+                    alpha: 1
+                }, 450, Ease.backInOut);
+            sprite.addEventListener('mousedown', function() {
+                unit.emit('tile:select');
+            });
+            unit.container.addChildAt(sprite, 0);
+        });
+    });
+
+    entity.on('disable', function() {
+        var sprite = unit.container.getChildByName('indicator');
+        Tween.removeTweens(sprite);
+        if (sprite) {
+            sprite.parent.removeChild(sprite);
+        }
+    });
+
+    entity.on('move:start', function moveStart(tile) {
+        var tween, tweenHPBar;
+        var path;
+        var prevTile = unit.lastTile;
+        path = game.tiles.findPath(prevTile, tile);
+        unit.prevX = HexUtil.coord(prevTile).x;
+        unit.moveStart();
+        Tween.removeTweens(unit.container);
+        Tween.get(unit.container.getChildByName('indicator')).to({ alpha: 0, scaleX: 0, scaleY: 0 }, 100);
+
+        if (unit.tilePathObject) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
+            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
+        }
+
+        if (unit.particles) {
+            _.each(unit.particles, function(particle) {
+                Tween.get(particle)
+                .to({
+                    y: particle.y + 40,
+                    alpha: 0
+                }, 800, Ease.backIn)
+                .call(function() {
+                    particle.parent.removeChild(particle);
+                });
+            });
+            unit.particles = [];
+        }
+
+        tween = Tween.get(unit.container);
+        tweenHPBar = Tween.get(unit.hpbar);
+        unit.tilePathObject = _this.generateTilePath(
+            [prevTile].concat(path),
+            function(tileSprite, i, prevTileSprite, tile) {
+                var walkDuration =
+                        tileSprite.y !== (prevTileSprite ? prevTileSprite.y : tileSprite.y) ?
+                        unit.walkDuration * 0.75 :
+                        unit.walkDuration;
+                var props = {
+                    x: tileSprite.x,
+                    y: tileSprite.y
+                };
+                if (i) { // Skip the 1st tile since it's the current
+                    tween = tween
+                        .call(function() { // tell which direction to face
+                            if (tileSprite.x > unit.prevX) {
+                                unit.face('right');
+                            } else {
+                                unit.face('left');
+                            }
+                            unit.prevX = tileSprite.x;
+                            unit.prevY = tileSprite.y;
+                            unit.currentTileZ = tile.z;
+                            unit.move(tile);
+                        })
+                        .to(props, walkDuration);
+                    tweenHPBar = tweenHPBar.to(props, walkDuration);
+                }
+            }
+        );
+        tween.call(function() {
+            var linePath = unit.tilePathObject.linePath;
+            var tileSprites = unit.tilePathObject.tileSprites;
+            _.each(tileSprites, function(tileSprite, i) {
+                Tween.get(tileSprite).wait(i * 100)
+                .to({
+                    scaleX: 0,
+                    scaleY: 0
+                }, 250, Ease.backIn)
+                .call(function() {
+                    if (tileSprite.parent) {
+                        tileSprite.parent.removeChild(tileSprite);
+                    }
+                });
+            });
+            Tween
+                .get(linePath)
+                .wait(105 * tileSprites.length)
+                .to({
+                    alpha: 0
+                }, 150)
+                .call(function() {
+                    if (linePath.parent) {
+                        linePath.parent.removeChild(linePath);
+                    }
+                });
+            unit.moveEnd();
+        });
+    });
+
+    entity.on('move:update', function(tile) {
+        var coord = HexUtil.coord(tile, true);
+        Tween.removeTweens(unit.container);
+        if (unit.tilePathObject) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tilePathObject.tileSprites);
+            _this.layers.tiles.removeChild(unit.tilePathObject.linePath);
+        }
+        unit.prevX = HexUtil.coord(unit.lastTile).x;
+        unit.container.x = coord.x;
+        unit.container.y = coord.y;
+        unit.hpbar.set({
+            x: unit.container.x,
+            y: unit.container.y
+        })
+        unit.move(tile);
+    });
+
+    unit.on('spawn', function() {
+        unit.hpbar.set({
+            x: unit.container.x,
+            y: unit.container.y
+        });
+    });
+
+    unit.on('show:damage', function() {
+        var scaleX = entity.stats.get('health').ratio();
+        var ease = Ease.quintOut;
+        var time = 500;
+        Tween.get(unit.hpbar.getChildByName('bar')).to({
+            scaleX: scaleX
+        }, time, ease);
+        Tween.get(unit.hpbar.getChildByName('bar-bg')).wait(300).to({
+            scaleX: scaleX
+        }, time, ease);
+    });
+
+    unit.on('move', function sortUnits(tile) {
+        _this.setSpriteDepth(unit.container, unit.currentTileZ || tile.z);
+    });
+
+    unit.on('move:end', function() {
+        var indicator = unit.container.getChildByName('indicator');
+        if (indicator) {
+            Tween.get(indicator).to({ alpha: 1, scaleX: 1, scaleY: 1 }, 600, Ease.quintInOut);
+        }
+        _this.showTileBonus(entity.tile, function(particle) {
+            unit.particles = [particle];
+        });
+    });
+
+    unit.on('tile:select', function inputSelect() {
+        if (_this.game.currentTurn === entity) {
+            unit.emit('tile:select:move');
+            unit.emit('tile:select:act');
+        }
+    });
+
+    unit.on('tile:select:move', function() {
+        var moveTiles;
+        if (unit.tileSprites) {
+            unit.emit('tiles:hide:path');
+            unit.emit('tiles:hide:move');
+        } else {
+            unit.tileSprites = [];
+            movable = game.tiles.findRange(entity.tile, entity.stats.get('range').value);
+            moveTiles = _.filter(movable, function(tile) {
+                return tile.entities.length === 0 && !tile.wall && tile !== entity.tile;
+            });
+
+            // show moveable tiles
+            _this.createTiles('hex_move', moveTiles, function(err, tileSprite, tile, i) {
+                tileSprite.addEventListener('mousedown', function() {
+                    var tiles, pathSpriteObject, lastTile;
+                    var path = game.tiles.findPath(entity.tile, tile);
+                    tiles = [entity.tile].concat(path);
+                    unit.emit('tiles:hide:target');
+                    unit.emit('tiles:hide:path');
+                    pathSpriteObject = _this.generateTilePath(tiles);
+                    lastTile = pathSpriteObject.tileSprites[pathSpriteObject.tileSprites.length - 1];
+                    lastTile.addEventListener('mousedown', function() {
+                        wait(100, function() {
+                            _this.emit('input:move', {
+                                tile: tile,
+                                entity: entity
+                            });
+                        });
+                        unit.emit('tiles:hide:all');
+                    });
+                    unit.tileSpritePaths = [].concat(pathSpriteObject.tileSprites).concat(pathSpriteObject.linePath);
+                });
+                unit.tileSprites.push(tileSprite);
+                tileSprite.set({
+                    scaleX: 0,
+                    scaleY: 0,
+                    alpha: 0
+                });
+                Tween.get(tileSprite)
+                    .wait(i * 10)
+                    .to({
+                        scaleX: 1,
+                        scaleY: 1,
+                        alpha: 1
+                    }, 200, Ease.backOut);
+            });
+        }
+    });
+
+    unit.on('tile:select:act', function(command) {
+        var targets;
+        var entityTile = entity.tile;
+        if (command || (command = entity.commands.first())) {
+            if (unit.tileSpritesTarget) {
+                unit.emit('tiles:hide:act');
+                unit.emit('tiles:hide:target');
+            } else {
+                unit.tileSpritesTarget = [];
+                targets = game.tiles.neighbors(entity.tile, command.range);
+                targets = _.filter(targets, function(tile) {
+                    var truthy = tile.entities.length > 0;
+                    _.each(tile.entities, function(entity) {
+                        if (entity.stats.get('health').val() === 0) {
+                            truthy = false;
+                        }
+                        return truthy;
+                    });
+                    return truthy;
+                });
+
+                (function sortLineOfSight() {
+                    var tile
+                       , start
+                       , end
+                       , slope
+                       , distance
+                       , i
+                    ;
+                    var slopes = {}
+                    ,   pair
+                    ;
+                    for(i=0, total=targets.length; i < total; i++) {
+                        tile = targets[i];
+                        start = HexUtil.coord(entity.tile);
+                        end = HexUtil.coord(tile);
+                        // Pythagorean theorem for distance calculation
+                        // used for determining line of sight.
+                        distance = Math.sqrt(
+                            Math.pow(end.x - start.x, 2) +
+                            Math.pow(end.y - start.y, 2)
+                        );
+                        // use to determine the slope of the unit.
+                        slope = (end.y - start.y) / (end.x - start.x);
+                        pair = [distance, tile];
+                        if (!slopes[slope]) {
+                            slopes[slope] = [];
+                        }
+                        if (slopes[slope][0]) {
+                            // we only need the shortest distance avaiable. If they are a tie, they can
+                            // share the same array
+                            // [distance, tile]
+                            if (distance < slopes[slope][0][0]) { // if the distance is lower
+                                slopes[slope] = [pair];
+                            } else if (distance === slopes[slope][0][0]) {
+                                slopes[slope].push(pair);
+                            }
+                        } else {
+                            slopes[slope].push(pair);
+                        }
+                    }
+                    var results = [];
+                    for(var k in slopes) {
+                        if(slopes.hasOwnProperty(k)) {
+                            for(var j=0; j<slopes[k].length;j++) {
+                                results.push(slopes[k][j][1]);
+                            }
+                        }
+                    }
+                    targets = results;
+                }).call();
+
+                _this.createTiles('hex_target', targets, function(err, tileSprite, tile, i) {
+                    var targetUnit;
+                    var targetEntity;
+                    targetEntity = tile.entities[0];
+                    if (targetEntity) {
+                        targetUnit = _this.getUnit(targetEntity.id);
+                        if (targetUnit) {
+                            targetUnit.container.addChildAt(tileSprite, 0);
+                        }
+                    }
+                    unit.tileSpritesTarget.push(tileSprite);
+                    tileSprite.addEventListener('mousedown', function() {
+                        var tiles, tileSprites;
+                        tiles = [tile];
+                        tileSprites = [];
+
+                        unit.emit('tiles:hide:path');
+                        unit.emit('tiles:hide:target');
+                        unit.tileSpritesTargetMark = [];
+
+                        _this.createTiles('hex_target_mark', tiles, function(err, tileSprite, tile, i) {
+                            targetUnit.container.addChildAt(tileSprite, 1);
+                            tileSprites.push(tileSprite);
+                            tileSprite.addEventListener('mousedown', function() { 
+                                /** delay to give some breathing space to the UI **/
+                                wait(100, function() {
+                                    _this.emit('input:act', {
+                                        tile: tile,
+                                        entity: entity,
+                                        target: targetEntity,
+                                        command: command
+                                    });
+                                });
+                                unit.emit('tiles:hide:all');
+                            });
+                            tileSprite.set({
+                                x: 0,
+                                y: 0,
+                                scaleX: 0,
+                                scaleY: 0,
+                                alpha: 0
+                            });
+                            Tween.get(tileSprite)
+                            .wait(i * 10)
+                            .to({
+                                scaleX: 1,
+                                scaleY: 1,
+                                alpha: 1
+                            }, 200, Ease.backOut);
+
+                            var splashTiles = game.tiles.neighbors(tile, command.splash);
+                            splashTiles = _.filter(splashTiles, function(tile) {
+                                var entities = tile.entities;
+                                return entities.length && entities[0] !== entity && !entities[0].isDead();
+                            });
+                            var targetTile = tile;
+                            _this.createTiles('hex_target', splashTiles, function(err, tileSprite, tile) {
+                                unit.tileSpritesTargetMark.push(tileSprite);
+                                var linePath = _this.createAttackLinePath(targetTile, tile);
+                                unit.tileSpritesTargetMark.push(linePath);
+                            });
+                        });
+
+                        var linePath = _this.createAttackLinePath(entity.tile, tile);
+                        unit.tileSpritesTargetMark.push(linePath);
+                        unit.tileSpritesTargetMark = unit.tileSpritesTargetMark.concat(tileSprites);
+                    });
+                    tileSprite.set({
+                        x: 0,
+                        y: 0,
+                        scaleX: 0,
+                        scaleY: 0,
+                        alpha: 0
+                    });
+                    Tween.get(tileSprite)
+                    .wait(i * 10)
+                    .to({
+                        scaleX: 1,
+                        scaleY: 1,
+                        alpha: 1
+                    }, 200, Ease.backOut);
+                });
+            }
+        }
+    });
+
+    unit.on('tiles:hide:all', function() {
+        unit.emit('tiles:hide:path');
+        unit.emit('tiles:hide:move');
+        unit.emit('tiles:hide:act');
+        unit.emit('tiles:hide:target');
+    });
+
+    unit.on('tiles:hide:act', function() {
+        var tiles = unit.tileSpritesTarget;
+        if (tiles) {
+            _.each(tiles, function(sprite) {
+                sprite.parent.removeChild(sprite);
+            });
+            delete unit.tileSpritesTarget;
+        }
+    });
+
+    unit.on('tiles:hide:target', function() {
+        var tiles = unit.tileSpritesTargetMark;
+        if (tiles) {
+            _.each(tiles, function(sprite) {
+                sprite.parent.removeChild(sprite);
+            });
+            delete unit.tileSpritesTargetMark;
+        }
+    });
+
+    unit.on('tiles:hide:path', function() {
+        var tiles = unit.tileSpritePaths;
+        if (tiles) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, tiles);
+            delete unit.tileSpritePaths;
+        }
+    });
+
+    unit.on('tiles:hide:move', function() {
+        if (unit.tileSprites) {
+            _this.layers.tiles.removeChild.apply(_this.layers.tiles, unit.tileSprites);
+            delete unit.tileSprites;
+        }
+    });
+};
 
 Client.create = function(game, callback) {
     var client = new Client(game);

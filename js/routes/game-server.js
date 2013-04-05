@@ -199,25 +199,9 @@ function serverEmulator(socket, level) {
                     id: _.uniqueId('unit'),
                     type: 'marine',
                     attributes: unitTypes['marine'],
-                    x: 0,
-                    y: 3
-                });
-                game.spawnEntity({
-                    id: _.uniqueId('unit'),
-                    type: 'vanguard',
-                    attributes: unitTypes['vanguard'],
-                    x: 2,
-                    y: 2
-                });
-                
-                game.spawnEntity({
-                    id: _.uniqueId('unit'),
-                    type: 'marine',
-                    attributes: unitTypes['marine'],
                     x: 2,
                     y: 3
                 });
-
                 game.spawnEntity({
                     id: _.uniqueId('unit'),
                     type: 'vanguard',
@@ -225,6 +209,23 @@ function serverEmulator(socket, level) {
                     x: 3,
                     y: 3
                 });
+                
+                game.spawnEntity({
+                    id: _.uniqueId('unit'),
+                    type: 'marine',
+                    attributes: unitTypes['marine'],
+                    x: 0,
+                    y: 3
+                });
+
+                //game.spawnEntity({
+                //    id: _.uniqueId('unit'),
+                //    type: 'vanguard',
+                //    attributes: unitTypes['vanguard'],
+                //    x: 3,
+                //    y: 3
+                //});
+
                 //routes.emit('unit:create', {
                 //    c: 'create',
                 //    id: 'marine',

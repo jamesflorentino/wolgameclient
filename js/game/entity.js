@@ -29,7 +29,7 @@ GameEntity.prototype.initialize = function(id) {
     // turn points
     this.stats.add('turn', 0, 10);
     // actions
-    this.stats.add('actions', 0, 5);
+    this.stats.add('actions', 0, 2);
     this.commands = new Commands();
     this.tile = null;
 };
